@@ -13,13 +13,13 @@ npm run dev
 
 ## Screens
 
-Use `?screen=welcome`, `signup`, `login`, `name`, `focus`, `routine`, `ready`, `dashboard`, `today`, `progress`, `calendar`, or `rituals`. Browser back/forward navigation is supported. Add Ritual opens from the plus button on Rituals; edit progress opens from the daily overview.
+Use `?screen=welcome`, `signup`, `login`, `name`, `focus`, `routine`, `ready`, `today`, `daily`, `progress`, `calendar`, or `rituals`. Browser back/forward navigation is supported. Today is the main signed-in page; `daily` opens its daily overview. Add Ritual opens from the plus button on Rituals, and edit progress opens from the daily overview.
 
 ## Prototype data
 
-Habits, nickname and focus choices are saved only in this browser under `odette-local-v1`. The first direct dashboard visit uses the supplied reference data. Completing onboarding starts the selected habits at zero. Updating a habit recalculates completion. Authentication forms are a preview, not real accounts; passwords and emails are not saved or transmitted. Google sign-in explains its unavailable state and offers entry to the preview.
+Habits, nickname and focus choices are saved only in this browser under `odette-local-v1`. The first direct Today visit uses the supplied reference data. Completing onboarding starts the selected habits at zero. Updating a habit recalculates completion. Authentication forms are a preview, not real accounts; passwords and emails are not saved or transmitted. Google sign-in explains its unavailable state and offers entry to the preview.
 
-Calendar dates and historical statistics are reference/demo data, not a connected reporting backend. Historical date navigation is visual; persistent per-day tracking and real streak calculation are not implemented. Profile and help use compact dialogs because no additional page designs were supplied.
+Calendar dates and historical statistics are reference/demo data, not a connected reporting backend. Historical date navigation is visual; persistent per-day tracking and real streak calculation are not implemented. Help uses a compact dialog because no additional page design was supplied.
 
 ## Assets and typography
 
