@@ -1321,3 +1321,516 @@ input[type="checkbox"] {
     padding-right: 17px;
   }
 }
+
+/* Consistent page chrome and mockup-specific surfaces */
+.topbar {
+  padding-left: 28px;
+  padding-right: 28px;
+}
+.back-button {
+  border: 1px solid #f1eff6;
+  box-shadow: 0 3px 4px #30303d26;
+}
+.progress-page {
+  padding: 38px 27px 68px;
+}
+.progress-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  min-height: 30px;
+  overflow: hidden;
+  border: 1px solid #bfc0d6;
+  border-radius: 8px;
+  background: #c7c7dc;
+}
+.progress-tabs > button {
+  min-height: 28px;
+  border-radius: 7px;
+  color: #fff;
+  font-size: 13px;
+}
+.progress-tabs > button.is-active {
+  border: 1px solid #bfc0d6;
+  background: #fff;
+  color: #16151d;
+}
+.progress-month {
+  margin: 21px 2px 13px;
+  font-family: var(--heading);
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.25px;
+  color: var(--ink);
+}
+.progress-page .stats-grid {
+  gap: 12px;
+}
+.progress-page .overall {
+  min-height: 199px;
+  padding: 21px 16px 10px;
+}
+.progress-page .mini-stat {
+  min-height: 93px;
+  padding: 15px 17px;
+}
+.progress-page .consistency {
+  margin-top: 14px;
+  min-height: 116px;
+  padding: 19px 19px 20px;
+}
+.progress-page .insight {
+  margin-top: 15px;
+  min-height: 80px;
+  padding-top: 22px;
+}
+.ritual-progress-grid {
+  display: grid;
+  gap: 12px;
+}
+.ritual-summary-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 108px;
+  gap: 14px;
+  min-height: 148px;
+  padding: 18px 17px 17px;
+  border-radius: 21px;
+}
+.ritual-summary-card h2 {
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.25px;
+}
+.ritual-summary-card > div:first-child > strong {
+  display: block;
+  margin-top: 12px;
+  font-family: var(--heading);
+  font-size: 28px;
+  font-weight: 500;
+  line-height: 1;
+}
+.ritual-summary-card > div:first-child > p {
+  margin-top: 9px;
+  max-width: 170px;
+  color: #9c9bce;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.ritual-summary-meter {
+  align-self: center;
+}
+.ritual-summary-meter > span {
+  display: block;
+  margin-bottom: 36px;
+  color: #9c9bce;
+  font-size: 11px;
+  text-align: right;
+}
+.ritual-summary-meter > p {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: #535260;
+  font-size: 11px;
+}
+.ritual-summary-meter i {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--mint);
+}
+.ritual-summary-card .progress-track {
+  height: 7px;
+  margin-top: 6px;
+  box-shadow: none;
+}
+.ritual-consistency-card {
+  min-height: 164px;
+  padding: 18px 18px 17px;
+  border-radius: 21px;
+}
+.ritual-consistency-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.ritual-consistency-heading h2 {
+  font-size: 18px;
+  font-weight: 500;
+}
+.ritual-consistency-heading span {
+  padding: 5px 11px;
+  border-radius: 99px;
+  background: #ffeaf8;
+  color: var(--pink);
+  font-size: 10px;
+}
+.ritual-consistency-values {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+  margin-top: 15px;
+}
+.ritual-consistency-values p {
+  margin: 0;
+}
+.ritual-consistency-values small {
+  display: block;
+  color: #9c9bce;
+  font-size: 10px;
+}
+.ritual-consistency-values strong {
+  display: block;
+  margin-top: 5px;
+  font-family: var(--heading);
+  font-size: 28px;
+  font-weight: 500;
+  line-height: 1;
+}
+.ritual-consistency-copy {
+  margin-top: 16px;
+  color: #9c9bce;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.screen-title {
+  margin: 18px 0 16px;
+}
+.screen-title h1 {
+  font-size: 25px;
+  font-weight: 600;
+}
+.calendar-page {
+  padding-top: 10px;
+}
+
+/* Ritual list */
+.rituals.content {
+  padding: 35px 27px 92px;
+}
+.rituals > h1 {
+  margin: 0 4px 25px;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+}
+.routine-card {
+  min-height: 236px;
+  margin-bottom: 20px;
+  padding: 20px 23px 20px;
+  border-radius: 28px;
+  border-color: #eff0f5;
+}
+.routine-card-heading {
+  display: block;
+  width: 100%;
+  padding: 0;
+  text-align: left;
+}
+.routine-card-heading h2 {
+  font-size: 19px;
+  font-weight: 600;
+}
+.routine-card-heading p {
+  margin-top: 5px;
+  color: #837d8d;
+  font-size: 14px;
+}
+.routine-card > .routine-activities {
+  margin-top: 25px;
+}
+.routine-card > .routine-activities > .routine-activity {
+  min-height: 31px;
+  padding: 5px 2px 5px 5px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.routine-activity .dot {
+  width: 14px;
+  height: 14px;
+  border-color: #ec8fbe;
+}
+.add-fab {
+  position: fixed;
+  z-index: 8;
+  right: auto;
+  bottom: calc(62px + env(safe-area-inset-bottom));
+  left: calc(50% + min(195px, 50vw) - 78px);
+  width: 61px;
+  height: 61px;
+  box-shadow: 0 4px 10px #30303d24;
+}
+
+/* Profile */
+.profile-page {
+  padding: 28px 30px 72px;
+}
+.profile-hero {
+  padding-top: 8px;
+  text-align: center;
+}
+.profile-avatar {
+  position: relative;
+  width: 104px;
+  height: 104px;
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: 50%;
+  background: #c4c5dc;
+}
+.profile-avatar span::before,
+.profile-avatar span::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  background: #fff;
+}
+.profile-avatar span::before {
+  top: 16px;
+  left: 37px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+}
+.profile-avatar span::after {
+  bottom: 16px;
+  left: 19px;
+  width: 66px;
+  height: 32px;
+  border-radius: 38px 38px 25px 25px;
+}
+.profile-change {
+  margin: 11px auto 16px;
+  padding: 7px 12px;
+  border-radius: 99px;
+  background: #fff;
+  color: var(--pink);
+  font-size: 11px;
+  box-shadow: 0 2px 8px #e5d9e633;
+}
+.profile-section + .profile-section {
+  margin-top: 23px;
+}
+.profile-section > h1 {
+  margin-bottom: 9px;
+  font-family: var(--body);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.profile-group {
+  overflow: hidden;
+  border-radius: 24px;
+  background: #fff0fa;
+}
+.profile-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 42px;
+  padding: 0 18px;
+  color: #787283;
+  font-size: 14px;
+  text-align: left;
+}
+.profile-row + .profile-row {
+  border-top: 1px solid #efddea;
+}
+.profile-row > span {
+  color: #8b88b4;
+}
+.profile-row > strong {
+  color: #56515f;
+  font-size: 14px;
+  font-weight: 400;
+}
+.profile-row svg {
+  color: #30303d;
+}
+.profile-signout {
+  min-height: 51px;
+  margin-top: 22px;
+  background: #ffe9f8;
+  color: #ef4b9e;
+  font-size: 14px;
+}
+
+/* Shared ritual sheets */
+.sheet {
+  padding: 19px 28px 25px;
+  border-radius: 30px 30px 0 0;
+}
+.sheet-handle {
+  display: block;
+  width: 46px;
+  height: 4px;
+  margin: 0 auto 16px;
+  border-radius: 99px;
+  background: #c3c3dc;
+}
+.sheet > header {
+  min-height: 34px;
+  margin-bottom: 20px;
+}
+.sheet > header h2 {
+  font-size: 17px;
+  font-weight: 600;
+}
+.sheet > header .circle-button {
+  width: 34px;
+  height: 34px;
+}
+.form-field-label {
+  display: grid;
+  gap: 6px;
+  color: #666170;
+  font-size: 13px;
+  line-height: 1.25;
+}
+.ritual-form {
+  gap: 12px;
+}
+.ritual-form > input,
+.edit-ritual-form > .form-field-label > input {
+  height: 51px;
+  border: 0;
+  background: #fff0fa;
+  color: var(--ink);
+  font-size: 14px;
+}
+.ritual-form .select-field,
+.edit-ritual-form .select-field {
+  min-height: 49px;
+  margin-top: 0;
+  background: #fff0fa;
+}
+.ritual-form .select-field select,
+.edit-ritual-form .select-field select {
+  height: 49px;
+  color: #595362;
+}
+.ritual-form .time-select {
+  min-height: 42px;
+}
+.ritual-form .time-select select {
+  height: 42px;
+}
+.activity-composer {
+  display: flex;
+  align-items: center;
+  min-height: 51px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: #fff0fa;
+  color: #6d6877;
+}
+.activity-composer > input {
+  min-width: 0;
+  height: 51px;
+  border: 0;
+  background: transparent;
+  padding: 0 18px;
+  font-size: 13px;
+  box-shadow: none;
+}
+.activity-composer > svg {
+  margin-right: 18px;
+}
+.activity-composer > button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-right: 10px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #fff;
+}
+.ritual-form .primary,
+.edit-ritual-form .primary {
+  min-height: 55px;
+  margin-top: 5px;
+  font-size: 15px;
+}
+.edit-ritual-form {
+  display: grid;
+  gap: 12px;
+}
+.ritual-select-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.ritual-select-grid .select-field {
+  padding: 0 14px;
+}
+.ritual-select-grid .select-field select {
+  font-size: 13px;
+}
+.activities-editor {
+  display: grid;
+  gap: 8px;
+}
+.activity-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.activity-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 25px;
+  padding: 4px 10px;
+  border: 1px solid #ee91c3;
+  border-radius: 99px;
+  color: #56515f;
+  font-size: 12px;
+}
+.activity-chip svg {
+  color: #50505f;
+}
+.delete-ritual {
+  justify-self: center;
+  padding: 4px 10px 0;
+  color: #f053a4;
+  font-size: 14px;
+}
+
+/* Dedicated success sheet */
+.completion-sheet {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  height: 65svh;
+  min-height: 500px;
+  flex-direction: column;
+  align-items: center;
+  border-radius: 30px 30px 0 0;
+  background: #fff;
+  padding: 47px 36px 53px;
+  text-align: center;
+}
+.completion-sheet h2 {
+  font-size: 21px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.completion-sheet > p {
+  margin-top: 9px;
+  color: #686575;
+  font-size: 16px;
+}
+.completion-flower {
+  width: 185px;
+  max-height: 255px;
+  margin: auto;
+  object-fit: contain;
+}
+.completion-sheet .primary {
+  min-height: 56px;
+  font-size: 16px;
+}
