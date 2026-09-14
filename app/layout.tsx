@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   icons: {
     icon: [{ url: "/favicon/favicon-web.webp", type: "image/webp" }],
     shortcut: ["/favicon/favicon-web.webp"],
-    apple: [{ url: "/favicon/favicon-mobileapp.webp", type: "image/webp" }],
+    apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
   },
 };
 export default function RootLayout({
