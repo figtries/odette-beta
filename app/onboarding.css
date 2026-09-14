@@ -66,11 +66,11 @@ html {
   height: 32%;
 }
 .welcome-stem {
-  top: 0;
+  top: 3%;
   left: 21.5%;
   width: 57%;
   height: auto;
-  clip-path: inset(32% 0 0);
+  clip-path: inset(27% 0 0);
 }
 .motto {
   top: 57%;
@@ -268,6 +268,7 @@ html {
   margin: auto auto -36px;
   align-self: center;
   padding-top: 10px;
+  transform: translateX(-2%);
 }
 .ready > .primary {
   position: relative;

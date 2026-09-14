@@ -15,6 +15,11 @@ export const metadata: Metadata = {
   title: "Odette — Small routines, softer days",
   description:
     "A little space for your daily rituals. Build gentle routines and watch yourself grow.",
+  icons: {
+    icon: [{ url: "/favicon/favicon-web.webp", type: "image/webp" }],
+    shortcut: ["/favicon/favicon-web.webp"],
+    apple: [{ url: "/favicon/favicon-mobileapp.webp", type: "image/webp" }],
+  },
 };
 export default function RootLayout({
   children,

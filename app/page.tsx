@@ -50,7 +50,8 @@ const screens = [
 ] as const;
 type Screen = (typeof screens)[number];
 type Modal =
-  | "add"
+  | "addActivity"
+  | "addRitual"
   | "editRitual"
   | "help"
   | "google"
@@ -76,7 +77,26 @@ const routineOptions = [
   "Pray/Meditate",
   "Sleep before 11 PM",
 ];
-const emojiOptions = ["🌸", "🌿", "🧁", "🌞", "🩷", "🫶"];
+const emojiOptions = [
+  "😀", "😃", "😄", "😁", "😊", "🥰", "😍", "🤩",
+  "😌", "😇", "🥹", "😂", "🙂", "🙃", "😉", "😎",
+  "🥳", "🤗", "🤭", "🫶", "👏", "🙌", "👍", "✌️",
+  "🤞", "🙏", "💪", "🧘", "❤️", "🩷", "🧡", "💛",
+  "💚", "🩵", "💙", "💜", "🤍", "✨", "⭐", "🌙",
+  "☀️", "🌈", "🔥", "🌸", "🌷", "🌹", "🌻", "🌿",
+  "🍀", "🌱", "🪷", "🦋", "🐝", "🐣", "🐱", "🐶",
+  "🍓", "🍎", "🥑", "🧁", "☕", "🫖", "🎀", "🎧",
+  "📚", "📝", "🎨", "🕯️", "🛁", "🛌", "🏃", "🚶",
+];
+const categoryOptions = [
+  "Mind",
+  "Body",
+  "Self Care",
+  "Wellness",
+  "Rest",
+  "Productivity",
+  "Joy",
+];
 function Flower({
   name,
   className = "",
@@ -309,7 +329,10 @@ export default function Home() {
     [ritualFrequency, setRitualFrequency] = useState("Every day"),
     [ritualTime, setRitualTime] = useState("Morning"),
     [ritualActivities, setRitualActivities] = useState<Habit[]>([]),
-    [newActivity, setNewActivity] = useState("");
+    [newActivity, setNewActivity] = useState(""),
+    [activityName, setActivityName] = useState(""),
+    [activityCategory, setActivityCategory] = useState(""),
+    [activityRitual, setActivityRitual] = useState("");
   const menuRef = useRef<HTMLDivElement>(null),
     menuButton = useRef<HTMLButtonElement>(null);
   useOdetteTools(habits, edited, setHabits, setEdited);
@@ -404,6 +427,22 @@ export default function Home() {
       "rituals",
       "profile",
     ].includes(screen);
+  const ritualOptions = Array.from(
+    new Map(
+      habits.map((habit) => {
+        const name = habit.ritualName?.trim() || `${habit.routine} Ritual`;
+        return [
+          name,
+          {
+            name,
+            routine: habit.routine,
+            frequency: habit.frequency,
+            time: habit.time,
+          },
+        ];
+      }),
+    ).values(),
+  );
   const toggle = (id: string) => {
     const next = toggleHabit(habits, id);
     setHabits(next);
@@ -422,7 +461,13 @@ export default function Home() {
     setRitualTime("Morning");
     setRitualActivities([]);
     setNewActivity("");
-    setModal("add");
+    setModal("addRitual");
+  };
+  const openAddActivity = () => {
+    setActivityName("");
+    setActivityCategory("");
+    setActivityRitual("");
+    setModal("addActivity");
   };
   const openRitualEditor = (routine: Routine) => {
     const activities = habits.filter((habit) => habit.routine === routine);
@@ -667,6 +712,7 @@ export default function Home() {
                             key={emoji}
                             type="button"
                             role="option"
+                            aria-label={`Choose ${emoji}`}
                             aria-selected={nicknameEmoji === emoji}
                             className={nicknameEmoji === emoji ? "is-selected" : ""}
                             onClick={() => {
@@ -830,8 +876,8 @@ export default function Home() {
             </button>
             <motion.button
               className="add-fab"
-              aria-label="Add ritual"
-              onClick={openAddRitual}
+              aria-label="Add activity"
+              onClick={openAddActivity}
               whileTap={{ scale: 0.92 }}
             >
               <Plus size={32} strokeWidth={1.2} />
@@ -1307,8 +1353,10 @@ export default function Home() {
           {modal && modal !== "done" && (
             <Dialog
               title={
-                modal === "add"
-                  ? "Add Ritual"
+                modal === "addActivity"
+                  ? "Add activity to your day"
+                  : modal === "addRitual"
+                    ? "Add Ritual"
                   : modal === "editRitual"
                     ? "Edit Ritual"
                     : modal === "google"
@@ -1317,7 +1365,80 @@ export default function Home() {
               }
               onClose={closeModal}
             >
-              {modal === "add" && (
+              {modal === "addActivity" && (
+                <form
+                  className="add-form activity-form"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const target = ritualOptions.find(
+                      (ritual) => ritual.name === activityRitual,
+                    );
+                    if (!activityName.trim() || !activityCategory || !target)
+                      return;
+                    setHabits((items) => [
+                      ...items,
+                      {
+                        id: crypto.randomUUID(),
+                        name: activityName.trim(),
+                        ritualName: target.name,
+                        routine: target.routine,
+                        done: false,
+                        category: activityCategory,
+                        frequency: target.frequency || "Every day",
+                        time: target.time || target.routine,
+                      },
+                    ]);
+                    setEdited(true);
+                    setModal(null);
+                    setToast("Activity added to today.");
+                  }}
+                >
+                  <input
+                    placeholder="Activity Name"
+                    aria-label="Activity Name"
+                    value={activityName}
+                    onChange={(e) => setActivityName(e.target.value)}
+                    required
+                    maxLength={60}
+                  />
+                  <div className="select-field">
+                    <select
+                      aria-label="Category"
+                      value={activityCategory}
+                      onChange={(e) => setActivityCategory(e.target.value)}
+                      required
+                    >
+                      <option value="" disabled>
+                        Category
+                      </option>
+                      {categoryOptions.map((category) => (
+                        <option key={category}>{category}</option>
+                      ))}
+                    </select>
+                    <ChevronDown size={16} />
+                  </div>
+                  <div className="select-field">
+                    <select
+                      aria-label="Add to your rituals"
+                      value={activityRitual}
+                      onChange={(e) => setActivityRitual(e.target.value)}
+                      required
+                    >
+                      <option value="" disabled>
+                        Add to your rituals
+                      </option>
+                      {ritualOptions.map((ritual) => (
+                        <option key={ritual.name} value={ritual.name}>
+                          {ritual.name}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown size={16} />
+                  </div>
+                  <Button type="submit">Add</Button>
+                </form>
+              )}
+              {modal === "addRitual" && (
                 <form
                   className="add-form ritual-form"
                   onSubmit={(e) => {
