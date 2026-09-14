@@ -546,8 +546,7 @@ export default function Home() {
           <section className="welcome">
             <h1 className="wordmark">Odette</h1>
             <div className="welcome-plant">
-              <Flower name="lotus-bloom-stem" className="welcome-stem" />
-              <Flower name="lotus-open" className="welcome-head" />
+              <Flower name="12" className="welcome-complete" />
             </div>
             <p className="motto">
               small routines,
