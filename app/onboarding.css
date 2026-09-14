@@ -58,7 +58,8 @@ html {
   top: 19%;
   left: 5%;
   width: 90%;
-  height: 70%;
+  height: auto;
+  bottom: calc(var(--entry-bottom) + 78px);
   pointer-events: none;
 }
 .welcome-head {
@@ -76,11 +77,13 @@ html {
   font-size: clamp(14px, 4.3vw, 18px);
 }
 .welcome-actions {
-  position: relative;
-  inset: auto;
-  width: 100%;
-  margin-top: auto;
-  padding-top: calc(var(--entry-height) * 0.5);
+  position: absolute;
+  right: clamp(24px, 9vw, 36px);
+  bottom: var(--entry-bottom);
+  left: clamp(24px, 9vw, 36px);
+  width: auto;
+  margin-top: 0;
+  padding-top: 0;
 }
 .welcome .primary,
 .auth .primary,
@@ -202,7 +205,7 @@ html {
 .nickname-field {
   flex-shrink: 0;
 }
-.nickname-field > svg {
+.emoji-trigger {
   top: 50%;
   transform: translateY(-50%);
 }
@@ -263,6 +266,7 @@ html {
   max-height: calc(var(--entry-height) * 0.54);
   object-fit: contain;
   margin: auto auto -36px;
+  align-self: center;
   padding-top: 10px;
 }
 .ready > .primary {

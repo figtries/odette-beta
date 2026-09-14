@@ -1,6 +1,7 @@
 export type Habit = {
   id: string;
   name: string;
+  ritualName?: string;
   routine: "Morning" | "Night";
   done: boolean;
   category: string;
@@ -106,6 +107,7 @@ export function isHabit(value: unknown): value is Habit {
   return (
     typeof h.id === "string" &&
     typeof h.name === "string" &&
+    (typeof h.ritualName === "undefined" || typeof h.ritualName === "string") &&
     typeof h.done === "boolean" &&
     ["Morning", "Night"].includes(h.routine) &&
     typeof h.category === "string" &&
