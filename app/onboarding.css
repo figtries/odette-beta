@@ -55,11 +55,12 @@ html {
   line-height: 1.2;
 }
 .welcome-plant {
-  top: 19%;
-  left: 0;
-  width: 100%;
-  height: auto;
-  bottom: calc(var(--entry-bottom) + 78px);
+  top: 17.5%;
+  left: 50%;
+  width: 84%;
+  height: 58%;
+  bottom: auto;
+  transform: translateX(-50%);
   pointer-events: none;
 }
 .motto {
