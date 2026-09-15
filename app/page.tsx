@@ -545,16 +545,18 @@ export default function Home() {
         {screen === "welcome" && (
           <section className="welcome">
             <h1 className="wordmark">Odette</h1>
-            <div className="welcome-plant">
-              <Flower name="12" className="welcome-complete" />
-            </div>
             <p className="motto">
               small routines,
               <br />
               <span>softer</span> days
             </p>
             <div className="welcome-actions">
-              <Button onClick={() => go("signup")}>Get started</Button>
+              <div className="welcome-cta">
+                <div className="welcome-plant">
+                  <Flower name="12" className="welcome-complete" />
+                </div>
+                <Button onClick={() => go("signup")}>Get started</Button>
+              </div>
               <p>
                 Already have an account?{" "}
                 <button onClick={() => go("login")}>Log in</button>
