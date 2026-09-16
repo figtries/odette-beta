@@ -14,14 +14,18 @@ import {
 } from "framer-motion";
 import {
   BookOpen,
+  Camera,
   Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Flower2,
+  Pencil,
   Plus,
   Smile,
   Sparkles,
+  Trash2,
+  Upload,
   X,
 } from "lucide-react";
 import {
@@ -51,14 +55,20 @@ const screens = [
 type Screen = (typeof screens)[number];
 type Modal =
   | "addActivity"
+  | "editActivity"
   | "addRitual"
   | "editRitual"
+  | "photo"
+  | "editProfile"
+  | "signOut"
   | "help"
   | "google"
   | "done"
   | null;
 type ProgressTab = "habits" | "rituals";
 type Routine = Habit["routine"];
+type Appearance = "Light" | "Dark";
+type Language = "English" | "Indonesia";
 const easing = [0.22, 1, 0.36, 1] as const;
 const focusOptions = [
   "Mental Wellness",
@@ -324,6 +334,8 @@ export default function Home() {
     [draft, setDraft] = useState<Habit[]>([]),
     [dailyDirty, setDailyDirty] = useState(false),
     [editingRoutine, setEditingRoutine] = useState<Routine>("Morning"),
+    [editingRitual, setEditingRitual] = useState(""),
+    [editingActivityId, setEditingActivityId] = useState<string | null>(null),
     [ritualName, setRitualName] = useState(""),
     [ritualCategory, setRitualCategory] = useState("Wellness"),
     [ritualFrequency, setRitualFrequency] = useState("Every day"),
@@ -332,9 +344,20 @@ export default function Home() {
     [newActivity, setNewActivity] = useState(""),
     [activityName, setActivityName] = useState(""),
     [activityCategory, setActivityCategory] = useState(""),
-    [activityRitual, setActivityRitual] = useState("");
+    [activityRitual, setActivityRitual] = useState(""),
+    [username, setUsername] = useState("Dummy Name"),
+    [email, setEmail] = useState("dummy@gmail.com"),
+    [profilePhoto, setProfilePhoto] = useState(""),
+    [appearance, setAppearance] = useState<Appearance>("Light"),
+    [language, setLanguage] = useState<Language>("English"),
+    [profileDraft, setProfileDraft] = useState({
+      username: "Dummy Name",
+      email: "dummy@gmail.com",
+    });
   const menuRef = useRef<HTMLDivElement>(null),
-    menuButton = useRef<HTMLButtonElement>(null);
+    menuButton = useRef<HTMLButtonElement>(null),
+    uploadInput = useRef<HTMLInputElement>(null),
+    cameraInput = useRef<HTMLInputElement>(null);
   useOdetteTools(habits, edited, setHabits, setEdited);
   const closeModal = useCallback(() => setModal(null), []);
   function go(next: Screen) {
@@ -361,6 +384,13 @@ export default function Home() {
         if (typeof s.edited === "boolean") setEdited(s.edited);
         if (Array.isArray(s.focus))
           setFocus(s.focus.filter((v: unknown) => typeof v === "string"));
+        if (typeof s.username === "string") setUsername(s.username);
+        if (typeof s.email === "string") setEmail(s.email);
+        if (typeof s.profilePhoto === "string") setProfilePhoto(s.profilePhoto);
+        if (s.appearance === "Light" || s.appearance === "Dark")
+          setAppearance(s.appearance);
+        if (s.language === "English" || s.language === "Indonesia")
+          setLanguage(s.language);
       }
     } catch {}
     setLoaded(true);
@@ -371,12 +401,35 @@ export default function Home() {
       try {
         localStorage.setItem(
           "odette-local-v1",
-          JSON.stringify({ nickname, nicknameEmoji, focus, habits, edited }),
+          JSON.stringify({
+            nickname,
+            nicknameEmoji,
+            focus,
+            habits,
+            edited,
+            username,
+            email,
+            profilePhoto,
+            appearance,
+            language,
+          }),
         );
       } catch {
         setToast("This browser could not save changes. Keep this tab open.");
       }
-  }, [nickname, nicknameEmoji, focus, habits, edited, loaded]);
+  }, [
+    nickname,
+    nicknameEmoji,
+    focus,
+    habits,
+    edited,
+    username,
+    email,
+    profilePhoto,
+    appearance,
+    language,
+    loaded,
+  ]);
   useEffect(() => {
     if (screen !== "daily") return;
     setDraft(habits.map((habit) => ({ ...habit })));
@@ -427,22 +480,23 @@ export default function Home() {
       "rituals",
       "profile",
     ].includes(screen);
-  const ritualOptions = Array.from(
-    new Map(
-      habits.map((habit) => {
-        const name = habit.ritualName?.trim() || `${habit.routine} Ritual`;
-        return [
-          name,
-          {
-            name,
-            routine: habit.routine,
-            frequency: habit.frequency,
-            time: habit.time,
-          },
-        ];
-      }),
-    ).values(),
-  );
+  const getRitualName = (habit: Habit) =>
+    habit.ritualName?.trim() || habit.routine;
+  const ritualGroups = Array.from(
+    habits.reduce((groups, habit) => {
+      const name = getRitualName(habit);
+      const activities = groups.get(name) || [];
+      activities.push(habit);
+      groups.set(name, activities);
+      return groups;
+    }, new Map<string, Habit[]>()),
+  ).map(([name, activities]) => ({ name, activities }));
+  const ritualOptions = ritualGroups.map(({ name, activities }) => ({
+    name,
+    routine: activities[0].routine,
+    frequency: activities[0].frequency,
+    time: activities[0].time,
+  }));
   const toggle = (id: string) => {
     const next = toggleHabit(habits, id);
     setHabits(next);
@@ -464,21 +518,57 @@ export default function Home() {
     setModal("addRitual");
   };
   const openAddActivity = () => {
+    setEditingActivityId(null);
     setActivityName("");
     setActivityCategory("");
     setActivityRitual("");
     setModal("addActivity");
   };
-  const openRitualEditor = (routine: Routine) => {
-    const activities = habits.filter((habit) => habit.routine === routine);
+  const openActivityEditor = (habit: Habit) => {
+    setEditingActivityId(habit.id);
+    setActivityName(habit.name);
+    setActivityCategory(habit.category);
+    setActivityRitual(getRitualName(habit));
+    setModal("editActivity");
+  };
+  const openRitualEditor = (name: string) => {
+    const activities = habits.filter((habit) => getRitualName(habit) === name);
+    const routine = activities[0]?.routine || "Morning";
     setEditingRoutine(routine);
-    setRitualName(activities[0]?.ritualName || `${routine} Ritual`);
-    setRitualCategory("Wellness");
+    setEditingRitual(name);
+    setRitualName(name);
+    setRitualCategory(activities[0]?.category || "Wellness");
     setRitualFrequency(activities[0]?.frequency || "Every day");
-    setRitualTime(routine);
+    setRitualTime(
+      ["Morning", "Afternoon", "Evening", "Night"].includes(
+        activities[0]?.time,
+      )
+        ? activities[0].time
+        : routine,
+    );
     setRitualActivities(activities.map((habit) => ({ ...habit })));
     setNewActivity("");
     setModal("editRitual");
+  };
+  const chooseProfilePhoto = (file?: File) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setToast("Please choose an image file.");
+      return;
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      setToast("Please choose a photo smaller than 3 MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result !== "string") return;
+      setProfilePhoto(reader.result);
+      setModal(null);
+      setToast("Profile photo updated.");
+    };
+    reader.onerror = () => setToast("That photo could not be opened.");
+    reader.readAsDataURL(file);
   };
   const addDraftActivity = () => {
     const name = newActivity.trim();
@@ -508,7 +598,9 @@ export default function Home() {
       reducedMotion="user"
       transition={{ duration: 0.45, ease: easing }}
     >
-      <main className={`app screen-${screen}`}>
+      <main
+        className={`app screen-${screen} theme-${appearance.toLowerCase()}`}
+      >
         {appShell && (
           <>
             <Flower name="lotus-leaf-stem" className="today-flower" />
@@ -903,18 +995,26 @@ export default function Home() {
                       (edited || dailyIds.includes(h.id)) && h.done === done,
                   )
                   .map((h) => (
-                    <button
-                      className="daily-habit"
-                      key={h.id}
-                      onClick={() => {
-                        setDraft((items) => toggleHabit(items, h.id));
-                        setDailyDirty(true);
-                      }}
-                      aria-label={`${h.done ? "Uncheck" : "Complete"} ${h.name}`}
-                    >
-                      <Dot tick checked={h.done} />
-                      <span>{h.name}</span>
-                    </button>
+                    <div className="daily-habit" key={h.id}>
+                      <button
+                        className="daily-habit-toggle"
+                        onClick={() => {
+                          setDraft((items) => toggleHabit(items, h.id));
+                          setDailyDirty(true);
+                        }}
+                        aria-label={`${h.done ? "Uncheck" : "Complete"} ${h.name}`}
+                      >
+                        <Dot tick checked={h.done} />
+                      </button>
+                      <button
+                        className="daily-habit-edit"
+                        onClick={() => openActivityEditor(h)}
+                        aria-label={`Edit ${h.name}`}
+                      >
+                        <span>{h.name}</span>
+                        <Pencil size={14} aria-hidden="true" />
+                      </button>
+                    </div>
                   ))}
                 {!dailyHabits.some(
                   (h) => (edited || dailyIds.includes(h.id)) && h.done === done,
@@ -1175,28 +1275,21 @@ export default function Home() {
         {screen === "rituals" && (
           <section className="rituals content">
             <h1>Rituals</h1>
-            {(["Morning", "Night"] as const).map((routine) => (
-              <article className="card routine-card" key={routine}>
+            {ritualGroups.map(({ name, activities }) => (
+              <article className="card routine-card" key={name}>
                 <button
                   className="routine-card-heading"
-                  onClick={() => openRitualEditor(routine)}
-                  aria-label={`Edit ${routine} ritual`}
+                  onClick={() => openRitualEditor(name)}
+                  aria-label={`Edit ${name} ritual`}
                 >
-                  <h2>{routine}</h2>
+                  <h2>{name}</h2>
                   <p>
-                    {
-                      habits.filter(
-                        (habit) => habit.routine === routine && habit.done,
-                      ).length
-                    }
-                    /{habits.filter((habit) => habit.routine === routine).length}{" "}
-                    Completed
+                    {activities.filter((habit) => habit.done).length}/
+                    {activities.length} Completed
                   </p>
                 </button>
                 <div className="routine-activities">
-                  {habits
-                    .filter((h) => h.routine === routine)
-                    .map((h) => (
+                  {activities.map((h) => (
                       <button
                         key={h.id}
                         className="routine-activity"
@@ -1215,11 +1308,6 @@ export default function Home() {
                         <Dot checked={h.done} />
                       </button>
                     ))}
-                  {!habits.some((h) => h.routine === routine) && (
-                    <p className="empty-text">
-                      A little space for a new ritual.
-                    </p>
-                  )}
                 </div>
               </article>
             ))}
@@ -1236,12 +1324,16 @@ export default function Home() {
         {screen === "profile" && (
           <section className="profile-page content">
             <div className="profile-hero">
-              <div className="profile-avatar" aria-hidden="true">
-                <span />
+              <div className={`profile-avatar ${profilePhoto ? "has-photo" : ""}`}>
+                {profilePhoto ? (
+                  <img src={profilePhoto} alt={`${username}'s profile`} />
+                ) : (
+                  <span aria-hidden="true" />
+                )}
               </div>
               <button
                 className="profile-change"
-                onClick={() => setToast("Profile photo changes are coming soon.")}
+                onClick={() => setModal("photo")}
               >
                 Change
               </button>
@@ -1249,14 +1341,26 @@ export default function Home() {
             <section className="profile-section" aria-labelledby="personal-information">
               <h1 id="personal-information">Personal Information</h1>
               <div className="profile-group">
-                <div className="profile-row">
+                <button
+                  className="profile-row"
+                  onClick={() => {
+                    setProfileDraft({ username, email });
+                    setModal("editProfile");
+                  }}
+                >
                   <span>Username</span>
-                  <strong>Dummy Name</strong>
-                </div>
-                <div className="profile-row">
+                  <strong>{username}</strong>
+                </button>
+                <button
+                  className="profile-row"
+                  onClick={() => {
+                    setProfileDraft({ username, email });
+                    setModal("editProfile");
+                  }}
+                >
                   <span>Email</span>
-                  <strong>dummy@gmail.com</strong>
-                </div>
+                  <strong>{email}</strong>
+                </button>
                 <button
                   className="profile-row"
                   onClick={() => setToast("Goals are ready to personalize soon.")}
@@ -1276,23 +1380,39 @@ export default function Home() {
             <section className="profile-section" aria-labelledby="preferences">
               <h1 id="preferences">Preferences</h1>
               <div className="profile-group">
-                <button
-                  className="profile-row"
-                  onClick={() => setToast("Appearance preferences are coming soon.")}
-                >
+                <label className="profile-row profile-select-row">
                   <span>Appearance</span>
+                  <select
+                    aria-label="Appearance"
+                    value={appearance}
+                    onChange={(event) => {
+                      setAppearance(event.target.value as Appearance);
+                      setToast(`Appearance changed to ${event.target.value}.`);
+                    }}
+                  >
+                    <option>Light</option>
+                    <option>Dark</option>
+                  </select>
                   <ChevronDown size={17} />
-                </button>
-                <button
-                  className="profile-row"
-                  onClick={() => setToast("Language preferences are coming soon.")}
-                >
+                </label>
+                <label className="profile-row profile-select-row">
                   <span>Language</span>
+                  <select
+                    aria-label="Language"
+                    value={language}
+                    onChange={(event) => {
+                      setLanguage(event.target.value as Language);
+                      setToast(`Language changed to ${event.target.value}.`);
+                    }}
+                  >
+                    <option>English</option>
+                    <option>Indonesia</option>
+                  </select>
                   <ChevronDown size={17} />
-                </button>
+                </label>
               </div>
             </section>
-            <Button className="profile-signout" onClick={() => go("welcome")}>
+            <Button className="profile-signout" onClick={() => setModal("signOut")}>
               Sign Out
             </Button>
           </section>
@@ -1354,19 +1474,25 @@ export default function Home() {
           {modal && modal !== "done" && (
             <Dialog
               title={
-                modal === "addActivity"
+                modal === "addActivity" || modal === "editActivity"
                   ? "Add activity to your day"
                   : modal === "addRitual"
                     ? "Add Ritual"
                   : modal === "editRitual"
                     ? "Edit Ritual"
+                    : modal === "photo"
+                      ? "Profile Photo"
+                    : modal === "editProfile"
+                      ? "Edit Personal Information"
+                    : modal === "signOut"
+                      ? "Sign Out"
                     : modal === "google"
                       ? "Continue with Google"
                       : "Help & Settings"
               }
               onClose={closeModal}
             >
-              {modal === "addActivity" && (
+              {(modal === "addActivity" || modal === "editActivity") && (
                 <form
                   className="add-form activity-form"
                   onSubmit={(e) => {
@@ -1376,6 +1502,28 @@ export default function Home() {
                     );
                     if (!activityName.trim() || !activityCategory || !target)
                       return;
+                    if (modal === "editActivity" && editingActivityId) {
+                      const updateActivity = (items: Habit[]) =>
+                        items.map((habit) =>
+                          habit.id === editingActivityId
+                            ? {
+                                ...habit,
+                                name: activityName.trim(),
+                                ritualName: target.name,
+                                routine: target.routine,
+                                category: activityCategory,
+                                frequency: target.frequency || "Every day",
+                                time: target.time || target.routine,
+                              }
+                            : habit,
+                        );
+                      setHabits(updateActivity);
+                      setDraft(updateActivity);
+                      setEdited(true);
+                      setModal(null);
+                      setToast("Activity updated.");
+                      return;
+                    }
                     setHabits((items) => [
                       ...items,
                       {
@@ -1436,7 +1584,28 @@ export default function Home() {
                     </select>
                     <ChevronDown size={16} />
                   </div>
-                  <Button type="submit">Add</Button>
+                  <Button type="submit">
+                    {modal === "editActivity" ? "Save Changes" : "Add"}
+                  </Button>
+                  {modal === "editActivity" && editingActivityId && (
+                    <button
+                      type="button"
+                      className="delete-ritual"
+                      onClick={() => {
+                        setHabits((items) =>
+                          items.filter((habit) => habit.id !== editingActivityId),
+                        );
+                        setDraft((items) =>
+                          items.filter((habit) => habit.id !== editingActivityId),
+                        );
+                        setEdited(true);
+                        setModal(null);
+                        setToast("Activity deleted.");
+                      }}
+                    >
+                      Delete Activity
+                    </button>
+                  )}
                 </form>
               )}
               {modal === "addRitual" && (
@@ -1462,6 +1631,16 @@ export default function Home() {
                         ]
                       : ritualActivities;
                     if (!ritualName.trim()) return;
+                    if (
+                      ritualGroups.some(
+                        (ritual) =>
+                          ritual.name.toLocaleLowerCase() ===
+                          ritualName.trim().toLocaleLowerCase(),
+                      )
+                    ) {
+                      setToast("Please choose a unique ritual name.");
+                      return;
+                    }
                     if (!activities.length) {
                       setToast("Add at least one activity to this ritual.");
                       return;
@@ -1589,14 +1768,27 @@ export default function Home() {
                   className="edit-ritual-form"
                   onSubmit={(e) => {
                     e.preventDefault();
+                    if (
+                      ritualGroups.some(
+                        (ritual) =>
+                          ritual.name !== editingRitual &&
+                          ritual.name.toLocaleLowerCase() ===
+                            ritualName.trim().toLocaleLowerCase(),
+                      )
+                    ) {
+                      setToast("Please choose a unique ritual name.");
+                      return;
+                    }
                     setHabits((all) => [
                       ...all.filter(
-                        (habit) => habit.routine !== editingRoutine,
+                        (habit) => getRitualName(habit) !== editingRitual,
                       ),
                       ...ritualActivities.map((activity) => ({
                         ...activity,
                         ritualName: ritualName.trim(),
-                        routine: editingRoutine,
+                        routine: (ritualTime === "Night"
+                          ? "Night"
+                          : "Morning") as Routine,
                         category: ritualCategory,
                         frequency: ritualFrequency,
                         time: ritualTime,
@@ -1717,16 +1909,139 @@ export default function Home() {
                     className="delete-ritual"
                     onClick={() => {
                       setHabits((all) =>
-                        all.filter((habit) => habit.routine !== editingRoutine),
+                        all.filter(
+                          (habit) => getRitualName(habit) !== editingRitual,
+                        ),
                       );
                       setEdited(true);
                       setModal(null);
-                      setToast(`${editingRoutine} ritual deleted.`);
+                      setToast(`${editingRitual} ritual deleted.`);
                     }}
                   >
                     Delete Ritual
                   </button>
                 </form>
+              )}
+              {modal === "photo" && (
+                <div className="profile-sheet-actions">
+                  {profilePhoto ? (
+                    <button
+                      type="button"
+                      className="profile-action danger-action"
+                      onClick={() => {
+                        setProfilePhoto("");
+                        setModal(null);
+                        setToast("Profile photo removed.");
+                      }}
+                    >
+                      <Trash2 size={19} aria-hidden="true" />
+                      Remove photo
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        className="profile-action"
+                        onClick={() => uploadInput.current?.click()}
+                      >
+                        <Upload size={19} aria-hidden="true" />
+                        Upload from device
+                      </button>
+                      <button
+                        type="button"
+                        className="profile-action"
+                        onClick={() => cameraInput.current?.click()}
+                      >
+                        <Camera size={19} aria-hidden="true" />
+                        Take photo
+                      </button>
+                    </>
+                  )}
+                  <input
+                    ref={uploadInput}
+                    className="visually-hidden"
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) => {
+                      chooseProfilePhoto(event.target.files?.[0]);
+                      event.currentTarget.value = "";
+                    }}
+                  />
+                  <input
+                    ref={cameraInput}
+                    className="visually-hidden"
+                    type="file"
+                    accept="image/*"
+                    capture="user"
+                    onChange={(event) => {
+                      chooseProfilePhoto(event.target.files?.[0]);
+                      event.currentTarget.value = "";
+                    }}
+                  />
+                </div>
+              )}
+              {modal === "editProfile" && (
+                <form
+                  className="profile-edit-form"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    setUsername(profileDraft.username.trim());
+                    setEmail(profileDraft.email.trim());
+                    setModal(null);
+                    setToast("Personal information saved.");
+                  }}
+                >
+                  <label className="form-field-label">
+                    Username
+                    <input
+                      value={profileDraft.username}
+                      onChange={(event) =>
+                        setProfileDraft((draft) => ({
+                          ...draft,
+                          username: event.target.value,
+                        }))
+                      }
+                      required
+                      maxLength={40}
+                    />
+                  </label>
+                  <label className="form-field-label">
+                    Email
+                    <input
+                      type="email"
+                      value={profileDraft.email}
+                      onChange={(event) =>
+                        setProfileDraft((draft) => ({
+                          ...draft,
+                          email: event.target.value,
+                        }))
+                      }
+                      required
+                      maxLength={120}
+                    />
+                  </label>
+                  <Button type="submit">Save Changes</Button>
+                </form>
+              )}
+              {modal === "signOut" && (
+                <div className="confirmation-content">
+                  <p>Are you sure you want to sign out?</p>
+                  <div className="confirmation-actions">
+                    <button type="button" onClick={closeModal}>
+                      No
+                    </button>
+                    <button
+                      type="button"
+                      className="confirm-signout"
+                      onClick={() => {
+                        setModal(null);
+                        go("welcome");
+                      }}
+                    >
+                      Yes, sign out
+                    </button>
+                  </div>
+                </div>
               )}
               {modal === "help" && (
                 <div className="help-content">
