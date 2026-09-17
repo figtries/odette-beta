@@ -7,11 +7,13 @@ export type Habit = {
   category: string;
   frequency: string;
   time: string;
+  scheduledDate?: string;
 };
 export const seedHabits: Habit[] = [
   {
     id: "water",
     name: "Drink water",
+    ritualName: "Morning",
     routine: "Morning",
     done: true,
     category: "Body",
@@ -21,6 +23,7 @@ export const seedHabits: Habit[] = [
   {
     id: "skincare",
     name: "Skincare",
+    ritualName: "Morning",
     routine: "Morning",
     done: true,
     category: "Self Care",
@@ -30,6 +33,7 @@ export const seedHabits: Habit[] = [
   {
     id: "exercise",
     name: "Take a walk",
+    ritualName: "Morning",
     routine: "Morning",
     done: true,
     category: "Body",
@@ -39,6 +43,7 @@ export const seedHabits: Habit[] = [
   {
     id: "meditate",
     name: "Meditate",
+    ritualName: "Morning",
     routine: "Morning",
     done: false,
     category: "Mind",
@@ -48,6 +53,7 @@ export const seedHabits: Habit[] = [
   {
     id: "journal",
     name: "Journal",
+    ritualName: "Night",
     routine: "Night",
     done: false,
     category: "Mind",
@@ -57,6 +63,7 @@ export const seedHabits: Habit[] = [
   {
     id: "read",
     name: "Read 20 minutes",
+    ritualName: "Night",
     routine: "Night",
     done: true,
     category: "Mind",
@@ -66,6 +73,7 @@ export const seedHabits: Habit[] = [
   {
     id: "stretch",
     name: "Stretch",
+    ritualName: "Night",
     routine: "Night",
     done: false,
     category: "Body",
@@ -75,6 +83,7 @@ export const seedHabits: Habit[] = [
   {
     id: "sleep",
     name: "Sleep before 11 PM",
+    ritualName: "Night",
     routine: "Night",
     done: true,
     category: "Rest",
@@ -101,6 +110,20 @@ export function completion(habits: Habit[], edited: boolean) {
       )
     : 73;
 }
+export function localDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+export function isScheduledForDate(habit: Habit, date: string) {
+  if (habit.scheduledDate) return habit.scheduledDate === date;
+  const [year, month, day] = date.split("-").map(Number);
+  const weekday = new Date(year, month - 1, day).getDay();
+  if (habit.frequency === "Weekdays") return weekday >= 1 && weekday <= 5;
+  if (habit.frequency === "Weekends") return weekday === 0 || weekday === 6;
+  return true;
+}
 export function isHabit(value: unknown): value is Habit {
   if (!value || typeof value !== "object") return false;
   const h = value as Habit;
@@ -112,6 +135,8 @@ export function isHabit(value: unknown): value is Habit {
     ["Morning", "Night"].includes(h.routine) &&
     typeof h.category === "string" &&
     typeof h.frequency === "string" &&
-    typeof h.time === "string"
+    typeof h.time === "string" &&
+    (typeof h.scheduledDate === "undefined" ||
+      typeof h.scheduledDate === "string")
   );
 }

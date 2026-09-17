@@ -6,6 +6,7 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   AnimatePresence,
   motion,
@@ -32,6 +33,8 @@ import {
   completion,
   dailyIds,
   isHabit,
+  isScheduledForDate,
+  localDateKey,
   seedHabits,
   toggleHabit,
   type Habit,
@@ -51,6 +54,8 @@ const screens = [
   "calendar",
   "rituals",
   "profile",
+  "subscription",
+  "help",
 ] as const;
 type Screen = (typeof screens)[number];
 type Modal =
@@ -60,14 +65,16 @@ type Modal =
   | "editRitual"
   | "photo"
   | "editProfile"
+  | "subscribe"
+  | "cancelPlan"
   | "signOut"
-  | "help"
   | "google"
   | "done"
   | null;
 type ProgressTab = "habits" | "rituals";
+type ProgressPeriod = "weekly" | "monthly";
+type ProgressView = "calendar" | "report";
 type Routine = Habit["routine"];
-type Appearance = "Light" | "Dark";
 type Language = "English" | "Indonesia";
 const easing = [0.22, 1, 0.36, 1] as const;
 const focusOptions = [
@@ -107,6 +114,114 @@ const categoryOptions = [
   "Productivity",
   "Joy",
 ];
+const periodOptions: DropdownOption[] = [
+  { value: "weekly", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
+];
+const viewByOptions: DropdownOption[] = [
+  { value: "", label: "View by", disabled: true },
+  ...periodOptions,
+];
+const languageOptions: DropdownOption[] = [
+  { value: "English", label: "English" },
+  { value: "Indonesia", label: "Indonesia" },
+];
+const asOptions = (values: readonly string[]): DropdownOption[] =>
+  values.map((value) => ({ value, label: value }));
+const activityCategoryOptions: DropdownOption[] = [
+  { value: "", label: "Category", disabled: true },
+  ...asOptions(categoryOptions),
+];
+const ritualCategoryOptions = asOptions([
+  "Mind",
+  "Wellness",
+  "Self Care",
+  "Body",
+]);
+const editRitualCategoryOptions = asOptions([
+  "Wellness",
+  "Mind",
+  "Self Care",
+  "Body",
+]);
+const frequencyOptions = asOptions(["Every day", "Weekdays", "Weekends"]);
+const timeRangeOptions = asOptions([
+  "Morning",
+  "Afternoon",
+  "Evening",
+  "Night",
+]);
+const plans = [
+  {
+    id: "monthly",
+    name: "Monthly",
+    months: 1,
+    price: 19999,
+    tagline: "Try it gently, stop whenever.",
+    highlight: "",
+  },
+  {
+    id: "halfYear",
+    name: "6 Months",
+    months: 6,
+    price: 79999,
+    tagline: "A calm half-year of rituals.",
+    highlight: "Most loved",
+  },
+  {
+    id: "yearly",
+    name: "1 Year",
+    months: 12,
+    price: 149999,
+    tagline: "Best value for a full year.",
+    highlight: "Best value",
+  },
+] as const;
+type PlanId = (typeof plans)[number]["id"];
+const planBenefits = [
+  ["Unlimited rituals", "Build as many routines as your days need."],
+  ["Full progress history", "Weekly and monthly reports, kept forever."],
+  ["Every mood & photo memory", "Look back on how each day actually felt."],
+  ["Gentle reminders", "Soft nudges for morning and night rituals."],
+];
+const monthlyPrice = plans[0].price;
+function rupiah(value: number) {
+  return `Rp${Math.round(value).toLocaleString("id-ID")}`;
+}
+function planSavings(plan: (typeof plans)[number]) {
+  return Math.round((1 - plan.price / (monthlyPrice * plan.months)) * 100);
+}
+function addMonths(dateKey: string, months: number) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  return new Date(year, month - 1 + months, day);
+}
+function formatPlanDate(date: Date) {
+  return date.toLocaleDateString("en-US", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+function ordinalDay(day: number) {
+  const lastTwoDigits = day % 100;
+  if (lastTwoDigits >= 11 && lastTwoDigits <= 13) return `${day}th`;
+  if (day % 10 === 1) return `${day}st`;
+  if (day % 10 === 2) return `${day}nd`;
+  if (day % 10 === 3) return `${day}rd`;
+  return `${day}th`;
+}
+function formatToday(date: Date) {
+  const weekday = date.toLocaleDateString("en-US", { weekday: "long" });
+  const month = date.toLocaleDateString("en-US", { month: "long" });
+  return `${weekday}, ${ordinalDay(date.getDate())} ${month} ${date.getFullYear()}`;
+}
+function formatDailyDate(date: Date) {
+  return date.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+  });
+}
 function Flower({
   name,
   className = "",
@@ -151,18 +266,21 @@ function Button({
   onClick,
   type = "button",
   className = "",
+  disabled = false,
 }: {
   children: ReactNode;
   onClick?: () => void;
   type?: "button" | "submit";
   className?: string;
+  disabled?: boolean;
 }) {
   return (
     <motion.button
       type={type}
       className={`primary ${className}`}
       onClick={onClick}
-      whileTap={{ scale: 0.98 }}
+      disabled={disabled}
+      whileTap={{ scale: disabled ? 1 : 0.98 }}
       transition={{ duration: 0.2 }}
     >
       {children}
@@ -232,6 +350,166 @@ function Ring({ value }: { value: number }) {
       </div>
       <p>{value === 100 ? "Beautifully done!" : "Good day!"}</p>
     </div>
+  );
+}
+type DropdownOption = { value: string; label: string; disabled?: boolean };
+type DropdownBox = { top: number; left: number; width: number; height: number };
+function Dropdown({
+  value,
+  options,
+  onChange,
+  label,
+  chevron = false,
+  menuAlign = "start",
+}: {
+  value: string;
+  options: DropdownOption[];
+  onChange: (value: string) => void;
+  label: string;
+  chevron?: boolean;
+  menuAlign?: "start" | "end";
+}) {
+  const [open, setOpen] = useState(false);
+  const [box, setBox] = useState<DropdownBox | null>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
+  const reduced = useReducedMotion();
+  const current = options.find((option) => option.value === value);
+  const place = useCallback(() => {
+    const anchor = trigger.current?.getBoundingClientRect();
+    if (!anchor) return;
+    const width = Math.min(Math.max(anchor.width, 176), window.innerWidth - 16);
+    const below = window.innerHeight - anchor.bottom - 12,
+      above = anchor.top - 12,
+      wanted = Math.min(options.length * 57 + 2, 322),
+      flip = below < wanted && above > below,
+      height = Math.max(114, Math.min(wanted, flip ? above : below));
+    setBox({
+      top: flip ? anchor.top - 6 - height : anchor.bottom + 6,
+      left: Math.min(
+        Math.max(8, menuAlign === "end" ? anchor.right - width : anchor.left),
+        window.innerWidth - width - 8,
+      ),
+      width,
+      height,
+    });
+  }, [menuAlign, options.length]);
+  useEffect(() => {
+    if (!open) return;
+    const items = () =>
+      Array.from(
+        menu.current?.querySelectorAll<HTMLButtonElement>(
+          ".dd-option:not(:disabled)",
+        ) ?? [],
+      );
+    const initial = items();
+    (
+      initial.find((item) => item.dataset.value === value) ?? initial[0]
+    )?.focus();
+    const away = (event: Event) => {
+      const target = event.target as Node;
+      if (menu.current?.contains(target) || trigger.current?.contains(target))
+        return;
+      setOpen(false);
+    };
+    const key = (event: KeyboardEvent) => {
+      if (
+        !["Escape", "ArrowDown", "ArrowUp", "Home", "End", "Tab"].includes(
+          event.key,
+        )
+      )
+        return;
+      event.preventDefault();
+      event.stopPropagation();
+      const list = items(),
+        index = list.indexOf(document.activeElement as HTMLButtonElement);
+      if (event.key === "ArrowDown") list[(index + 1) % list.length]?.focus();
+      else if (event.key === "ArrowUp")
+        list[(index - 1 + list.length) % list.length]?.focus();
+      else if (event.key === "Home") list[0]?.focus();
+      else if (event.key === "End") list[list.length - 1]?.focus();
+      else {
+        setOpen(false);
+        trigger.current?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", away, true);
+    document.addEventListener("keydown", key, true);
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
+    return () => {
+      document.removeEventListener("pointerdown", away, true);
+      document.removeEventListener("keydown", key, true);
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
+    };
+  }, [open, place, value]);
+  return (
+    <>
+      <button
+        ref={trigger}
+        type="button"
+        className="dd-trigger"
+        aria-label={label}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => {
+          if (open) {
+            setOpen(false);
+            return;
+          }
+          place();
+          setOpen(true);
+        }}
+      >
+        <span className="dd-label">{current?.label ?? ""}</span>
+        {chevron && <ChevronDown size={14} aria-hidden="true" />}
+      </button>
+      {open && box
+        ? createPortal(
+            <motion.div
+              ref={menu}
+              role="listbox"
+              aria-label={label}
+              className="dd-menu"
+              style={{
+                top: box.top,
+                left: box.left,
+                width: box.width,
+                maxHeight: box.height,
+              }}
+              initial={
+                reduced ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: -6 }
+              }
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ duration: reduced ? 0 : 0.18, ease: easing }}
+            >
+              {options.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  role="option"
+                  data-value={option.value}
+                  aria-selected={!option.disabled && option.value === value}
+                  disabled={option.disabled}
+                  className="dd-option"
+                  onClick={() => {
+                    setOpen(false);
+                    trigger.current?.focus();
+                    if (option.value !== value) onChange(option.value);
+                  }}
+                >
+                  <span>{option.label}</span>
+                  {option.value === value && !option.disabled && (
+                    <Check size={19} aria-hidden="true" />
+                  )}
+                </button>
+              ))}
+            </motion.div>,
+            document.body,
+          )
+        : null}
+    </>
   );
 }
 function Dialog({
@@ -327,9 +605,14 @@ export default function Home() {
     [menu, setMenu] = useState(false),
     [modal, setModal] = useState<Modal>(null),
     [progressTab, setProgressTab] = useState<ProgressTab>("habits"),
+    [progressPeriod, setProgressPeriod] =
+      useState<ProgressPeriod>("monthly"),
+    [progressView, setProgressView] = useState<ProgressView>("calendar"),
     [month, setMonth] = useState(5),
     [year, setYear] = useState(2020),
+    [today, setToday] = useState<Date | null>(null),
     [detailDate, setDetailDate] = useState("Tuesday, Sep 1"),
+    [detailDateKey, setDetailDateKey] = useState(""),
     [toast, setToast] = useState(""),
     [draft, setDraft] = useState<Habit[]>([]),
     [dailyDirty, setDailyDirty] = useState(false),
@@ -348,8 +631,10 @@ export default function Home() {
     [username, setUsername] = useState("Dummy Name"),
     [email, setEmail] = useState("dummy@gmail.com"),
     [profilePhoto, setProfilePhoto] = useState(""),
-    [appearance, setAppearance] = useState<Appearance>("Light"),
     [language, setLanguage] = useState<Language>("English"),
+    [planId, setPlanId] = useState<PlanId | null>(null),
+    [planStarted, setPlanStarted] = useState(""),
+    [planChoice, setPlanChoice] = useState<PlanId>("halfYear"),
     [profileDraft, setProfileDraft] = useState({
       username: "Dummy Name",
       email: "dummy@gmail.com",
@@ -360,16 +645,37 @@ export default function Home() {
     cameraInput = useRef<HTMLInputElement>(null);
   useOdetteTools(habits, edited, setHabits, setEdited);
   const closeModal = useCallback(() => setModal(null), []);
+  const todayKey = today ? localDateKey(today) : "";
   function go(next: Screen) {
+    if (next === "progress") {
+      setProgressView("calendar");
+      setProgressTab("habits");
+    }
     setScreen(next);
     setMenu(false);
     window.history.pushState({}, "", `?screen=${next}`);
     window.scrollTo(0, 0);
   }
   useEffect(() => {
+    const updateToday = () => setToday(new Date());
+    updateToday();
+    const timer = window.setInterval(updateToday, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  useEffect(() => {
     const readScreen = () => {
-      const v = new URLSearchParams(window.location.search).get("screen");
+      const params = new URLSearchParams(window.location.search);
+      const v = params.get("screen");
       setScreen(screens.includes(v as Screen) ? (v as Screen) : "welcome");
+      const period = params.get("period");
+      const tab = params.get("tab");
+      if (tab === "habits" || tab === "rituals") setProgressTab(tab);
+      if (v === "progress" && (period === "weekly" || period === "monthly")) {
+        setProgressPeriod(period);
+        setProgressView("report");
+      } else {
+        setProgressView("calendar");
+      }
     };
     readScreen();
     window.addEventListener("popstate", readScreen);
@@ -380,17 +686,26 @@ export default function Home() {
         if (typeof s.nicknameEmoji === "string")
           setNicknameEmoji(s.nicknameEmoji);
         if (Array.isArray(s.habits) && s.habits.every(isHabit))
-          setHabits(s.habits);
+          setHabits(
+            s.habits.map((habit: Habit) =>
+              typeof habit.ritualName === "undefined"
+                ? { ...habit, ritualName: habit.routine }
+                : habit,
+            ),
+          );
         if (typeof s.edited === "boolean") setEdited(s.edited);
         if (Array.isArray(s.focus))
           setFocus(s.focus.filter((v: unknown) => typeof v === "string"));
         if (typeof s.username === "string") setUsername(s.username);
         if (typeof s.email === "string") setEmail(s.email);
         if (typeof s.profilePhoto === "string") setProfilePhoto(s.profilePhoto);
-        if (s.appearance === "Light" || s.appearance === "Dark")
-          setAppearance(s.appearance);
         if (s.language === "English" || s.language === "Indonesia")
           setLanguage(s.language);
+        if (plans.some((plan) => plan.id === s.planId)) {
+          setPlanId(s.planId);
+          setPlanChoice(s.planId);
+        }
+        if (typeof s.planStarted === "string") setPlanStarted(s.planStarted);
       }
     } catch {}
     setLoaded(true);
@@ -410,8 +725,9 @@ export default function Home() {
             username,
             email,
             profilePhoto,
-            appearance,
             language,
+            planId,
+            planStarted,
           }),
         );
       } catch {
@@ -426,18 +742,25 @@ export default function Home() {
     username,
     email,
     profilePhoto,
-    appearance,
     language,
+    planId,
+    planStarted,
     loaded,
   ]);
   useEffect(() => {
     if (screen !== "daily") return;
-    setDraft(habits.map((habit) => ({ ...habit })));
+    const dateKey = detailDateKey || todayKey;
+    if (!dateKey) return;
+    setDraft(
+      habits
+        .filter((habit) => isScheduledForDate(habit, dateKey))
+        .map((habit) => ({ ...habit })),
+    );
     setDailyDirty(false);
-  }, [screen]);
+  }, [screen, detailDateKey, todayKey]);
   useEffect(() => {
     if (!toast) return;
-    const t = setTimeout(() => setToast(""), 5000);
+    const t = setTimeout(() => setToast(""), 1200);
     return () => clearTimeout(t);
   }, [toast]);
   useEffect(() => {
@@ -469,8 +792,11 @@ export default function Home() {
     document.addEventListener("keydown", key);
     return () => document.removeEventListener("keydown", key);
   }, [menu]);
-  const dailyHabits = draft.length ? draft : habits,
-    percent = completion(habits, edited),
+  const todayHabits = todayKey
+      ? habits.filter((habit) => isScheduledForDate(habit, todayKey))
+      : habits,
+    dailyHabits = draft.length ? draft : todayHabits,
+    percent = completion(todayHabits, edited),
     dailyPercent = completion(dailyHabits, edited || dailyDirty),
     appShell = [
       "today",
@@ -479,12 +805,28 @@ export default function Home() {
       "calendar",
       "rituals",
       "profile",
+      "subscription",
+      "help",
     ].includes(screen);
-  const getRitualName = (habit: Habit) =>
-    habit.ritualName?.trim() || habit.routine;
+  const activePlan = plans.find((plan) => plan.id === planId) ?? null,
+    chosenPlan = plans.find((plan) => plan.id === planChoice) ?? plans[1],
+    renewsOn =
+      activePlan && planStarted
+        ? formatPlanDate(addMonths(planStarted, activePlan.months))
+        : "";
+  const startPlan = (next: PlanId) => {
+    const plan = plans.find((item) => item.id === next);
+    if (!plan) return;
+    setPlanId(next);
+    setPlanStarted(localDateKey(today ?? new Date()));
+    setModal(null);
+    setToast(`Odette Plus ${plan.name} is active. Enjoy your softer days.`);
+  };
+  const getRitualName = (habit: Habit) => habit.ritualName?.trim() || "";
   const ritualGroups = Array.from(
-    habits.reduce((groups, habit) => {
+    todayHabits.reduce((groups, habit) => {
       const name = getRitualName(habit);
+      if (!name) return groups;
       const activities = groups.get(name) || [];
       activities.push(habit);
       groups.set(name, activities);
@@ -593,23 +935,120 @@ export default function Home() {
     setMonth(d.getMonth());
     setYear(d.getFullYear());
   };
+  const openProgressReport = (period: ProgressPeriod) => {
+    const reportTab = progressView === "report" ? progressTab : "habits";
+    setProgressPeriod(period);
+    setProgressTab(reportTab);
+    setProgressView("report");
+    window.history.pushState(
+      {},
+      "",
+      `?screen=progress&period=${period}${
+        reportTab === "rituals" ? "&tab=rituals" : ""
+      }`,
+    );
+    window.scrollTo(0, 0);
+  };
+  const openProgressTab = (tab: ProgressTab) => {
+    setProgressTab(tab);
+    window.history.pushState(
+      {},
+      "",
+      `?screen=progress&period=${progressPeriod}${
+        tab === "rituals" ? "&tab=rituals" : ""
+      }`,
+    );
+  };
+  const progressReport =
+    progressPeriod === "weekly"
+      ? {
+          overall: edited ? percent : 78,
+          currentStreak: edited ? (habits.some((h) => h.done) ? 1 : 0) : 6,
+          longestStreak: edited ? (habits.some((h) => h.done) ? 1 : 0) : 7,
+          most: 86,
+          least: 43,
+          periodLabel: "This Week",
+          routines: [
+            {
+              title: "Morning routine",
+              value: 84,
+              days: "6 / 7 days",
+              copy: "You started most days feeling grounded and ready.",
+            },
+            {
+              title: "Night routine",
+              value: 71,
+              days: "5 / 7 days",
+              copy: "You closed most evenings with a calm, restful rhythm.",
+            },
+          ],
+          average: 78,
+          bestLabel: "Best day",
+          best: 92,
+        }
+      : {
+          overall: percent,
+          currentStreak: edited ? (habits.some((h) => h.done) ? 1 : 0) : 12,
+          longestStreak: edited ? (habits.some((h) => h.done) ? 1 : 0) : 12,
+          most: 82,
+          least: 32,
+          periodLabel: "This Month",
+          routines: [
+            {
+              title: "Morning routine",
+              value: 87,
+              days: "26 / 30 days",
+              copy: "You started most days feeling grounded and ready.",
+            },
+            {
+              title: "Night routine",
+              value: 77,
+              days: "23 / 30 days",
+              copy: "You closed most evenings with a calm, restful rhythm.",
+            },
+          ],
+          average: 82,
+          bestLabel: "Best week",
+          best: 92,
+        };
+  const progressMonth = new Date(year, month, 1).toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+  const progressRange =
+    progressPeriod === "weekly"
+      ? `${new Date(year, month, 1).toLocaleDateString("en-US", {
+          month: "long",
+        })} ${year} · Week 1 (1–7)`
+      : progressMonth;
   return (
     <MotionConfig
       reducedMotion="user"
       transition={{ duration: 0.45, ease: easing }}
     >
-      <main
-        className={`app screen-${screen} theme-${appearance.toLowerCase()}`}
-      >
+      <main className={`app screen-${screen}`}>
         {appShell && (
           <>
             <Flower name="lotus-leaf-stem" className="today-flower" />
             <nav className="topbar" aria-label="Page navigation">
               {screen !== "today" ? (
                 <button
-                  aria-label="Back to Today"
+                  aria-label={
+                    screen === "progress" && progressView === "report"
+                      ? "Back to Progress calendar"
+                      : "Back to Today"
+                  }
                   className="back-button"
-                  onClick={() => go("today")}
+                  onClick={() => {
+                    if (screen === "progress" && progressView === "report") {
+                      setProgressView("calendar");
+                      setProgressTab("habits");
+                      window.history.pushState({}, "", "?screen=progress");
+                      window.scrollTo(0, 0);
+                    } else {
+                      go("today");
+                    }
+                  }}
                 >
                   <ChevronLeft size={22} />
                 </button>
@@ -916,7 +1355,7 @@ export default function Home() {
                 go("today");
               }}
             >
-              Go to Today
+              Go to my day
             </Button>
           </section>
         )}
@@ -928,12 +1367,13 @@ export default function Home() {
                 <br />
                 {nickname || "karin"} {nicknameEmoji}
               </h1>
-              <p>Tuesday, 1st September 2026</p>
+              <p>{today ? formatToday(today) : "\u00a0"}</p>
             </header>
             <button
               className="card today-card"
               onClick={() => {
-                setDetailDate("Tuesday, Sep 1");
+                setDetailDate(formatDailyDate(today ?? new Date()));
+                setDetailDateKey(localDateKey(today ?? new Date()));
                 go("daily");
               }}
             >
@@ -957,15 +1397,39 @@ export default function Home() {
               </span>
             </button>
             <button
-              className="card morning-preview"
+              className="card today-ritual-preview"
               onClick={() => go("rituals")}
             >
-              <h2>Morning Routine</h2>
-              <p>
-                {habits.filter((h) => h.routine === "Morning" && h.done).length}
-                /{habits.filter((h) => h.routine === "Morning").length}{" "}
-                Completed
-              </p>
+              <div className="today-ritual-heading">
+                <span>
+                  <small>Rituals for today</small>
+                  <h2>
+                    {ritualGroups.length} ritual
+                    {ritualGroups.length === 1 ? "" : "s"} planned
+                  </h2>
+                </span>
+                <ChevronRight size={18} aria-hidden="true" />
+              </div>
+              {ritualGroups.length ? (
+                <div className="today-ritual-list">
+                  {ritualGroups.slice(0, 3).map(({ name, activities }) => (
+                    <span className="today-ritual-row" key={name}>
+                      <strong>{name}</strong>
+                      <small>
+                        {activities.filter((habit) => habit.done).length}/
+                        {activities.length}
+                      </small>
+                    </span>
+                  ))}
+                  {ritualGroups.length > 3 && (
+                    <span className="today-ritual-more">
+                      +{ritualGroups.length - 3} more
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <p>No rituals are scheduled for today. Tap to create one.</p>
+              )}
             </button>
             <motion.button
               className="add-fab"
@@ -1030,7 +1494,12 @@ export default function Home() {
             <Button
               className="pink-button edit-progress"
               onClick={() => {
-                setHabits(dailyHabits);
+                setHabits((items) => {
+                  const updates = new Map(
+                    dailyHabits.map((habit) => [habit.id, habit]),
+                  );
+                  return items.map((habit) => updates.get(habit.id) || habit);
+                });
                 setEdited(true);
                 setDailyDirty(false);
                 if (
@@ -1045,7 +1514,7 @@ export default function Home() {
             </Button>
           </section>
         )}
-        {screen === "progress" && (
+        {screen === "progress" && progressView === "report" && (
           <section className="progress-page content">
             <div className="progress-tabs" role="tablist" aria-label="Progress type">
               {(["habits", "rituals"] as const).map((tab) => (
@@ -1055,27 +1524,37 @@ export default function Home() {
                   role="tab"
                   aria-selected={progressTab === tab}
                   className={progressTab === tab ? "is-active" : ""}
-                  onClick={() => setProgressTab(tab)}
+                  onClick={() => openProgressTab(tab)}
                 >
                   {tab === "habits" ? "Habits" : "Rituals"}
                 </button>
               ))}
             </div>
-            <h1 className="progress-month">June 2020</h1>
+            <div className="progress-report-heading">
+              <h1 className="progress-month">{progressRange}</h1>
+              <Dropdown
+                label="Progress period"
+                chevron
+                menuAlign="end"
+                value={progressPeriod}
+                options={periodOptions}
+                onChange={(next) => openProgressReport(next as ProgressPeriod)}
+              />
+            </div>
             {progressTab === "habits" ? (
               <>
                 <div className="stats-grid">
                   <article className="card overall">
                     <span>Overall completion</span>
-                    <strong>{percent}%</strong>
-                    <small>This Month</small>
+                    <strong>{progressReport.overall}%</strong>
+                    <small>{progressReport.periodLabel}</small>
                     <Flower name="lotus-blossoms" />
                   </article>
                   <article className="card mini-stat">
                     <span>Current Streak</span>
                     <p>
                       <strong>
-                        {edited ? (habits.some((h) => h.done) ? 1 : 0) : 12}
+                        {progressReport.currentStreak}
                       </strong>{" "}
                       days
                     </p>
@@ -1084,7 +1563,7 @@ export default function Home() {
                     <span>Longest Streak</span>
                     <p>
                       <strong>
-                        {edited ? (habits.some((h) => h.done) ? 1 : 0) : 12}
+                        {progressReport.longestStreak}
                       </strong>{" "}
                       days
                     </p>
@@ -1094,7 +1573,7 @@ export default function Home() {
                   {
                     title: "Most consistent",
                     name: "Skincare",
-                    value: 82,
+                    value: progressReport.most,
                     icon: (
                       <Sparkles
                         aria-hidden="true"
@@ -1106,7 +1585,7 @@ export default function Home() {
                   {
                     title: "Least consistent",
                     name: "Journaling",
-                    value: 32,
+                    value: progressReport.least,
                     icon: (
                       <BookOpen
                         aria-hidden="true"
@@ -1139,20 +1618,7 @@ export default function Home() {
               </>
             ) : (
               <div className="ritual-progress-grid">
-                {[
-                  {
-                    title: "Morning routine",
-                    value: 84,
-                    days: "6 / 7 days",
-                    copy: "You started most days feeling grounded and ready.",
-                  },
-                  {
-                    title: "Night routine",
-                    value: 71,
-                    days: "5 / 7 days",
-                    copy: "You closed most evenings with a calm, restful rhythm.",
-                  },
-                ].map((summary) => (
+                {progressReport.routines.map((summary) => (
                   <article className="card ritual-summary-card" key={summary.title}>
                     <div>
                       <h2>{summary.title}</h2>
@@ -1160,7 +1626,7 @@ export default function Home() {
                       <p>{summary.copy}</p>
                     </div>
                     <div className="ritual-summary-meter">
-                      <span>This week</span>
+                      <span>{progressReport.periodLabel}</span>
                       <p>
                         <i aria-hidden="true" />
                         {summary.days}
@@ -1177,11 +1643,11 @@ export default function Home() {
                   <div className="ritual-consistency-values">
                     <p>
                       <small>Average completion</small>
-                      <strong>78%</strong>
+                      <strong>{progressReport.average}%</strong>
                     </p>
                     <p>
-                      <small>Best week</small>
-                      <strong>92%</strong>
+                      <small>{progressReport.bestLabel}</small>
+                      <strong>{progressReport.best}%</strong>
                     </p>
                   </div>
                   <p className="ritual-consistency-copy">
@@ -1193,10 +1659,28 @@ export default function Home() {
             )}
           </section>
         )}
-        {screen === "calendar" && (
-          <section className="calendar-page content">
-            <header className="screen-title">
-              <h1>Calendar</h1>
+        {(screen === "calendar" ||
+          (screen === "progress" && progressView === "calendar")) && (
+          <section
+            className={`${
+              screen === "progress" ? "progress-calendar-page" : "calendar-page"
+            } content`}
+          >
+            <header className="screen-title progress-calendar-heading">
+              <h1>{screen === "progress" ? "Progress" : "Calendar"}</h1>
+              {screen === "progress" && (
+                <div className="progress-period-picker">
+                  <Dropdown
+                    label="View progress by period"
+                    value=""
+                    options={viewByOptions}
+                    onChange={(next) =>
+                      openProgressReport(next as ProgressPeriod)
+                    }
+                  />
+                  <ChevronDown size={15} aria-hidden="true" />
+                </div>
+              )}
             </header>
             <article className="card calendar-card">
               <div className="month-heading">
@@ -1240,8 +1724,9 @@ export default function Home() {
                       key={i}
                       className={i === 3 || i === 4 ? "highlight" : ""}
                       onClick={() => {
+                        const selectedDate = new Date(year, month, i + 1);
                         setDetailDate(
-                          new Date(year, month, i + 1).toLocaleDateString(
+                          selectedDate.toLocaleDateString(
                             "en-US",
                             {
                               weekday: "long",
@@ -1250,6 +1735,7 @@ export default function Home() {
                             },
                           ),
                         );
+                        setDetailDateKey(localDateKey(selectedDate));
                         go("daily");
                       }}
                       aria-label={`View ${new Date(year, month, i + 1).toLocaleDateString()}`}
@@ -1275,6 +1761,14 @@ export default function Home() {
         {screen === "rituals" && (
           <section className="rituals content">
             <h1>Rituals</h1>
+            {ritualGroups.length === 0 && (
+              <div className="rituals-empty">
+                <p>No rituals created yet</p>
+                <button className="rituals-empty-cta" onClick={openAddRitual}>
+                  Create your first ritual
+                </button>
+              </div>
+            )}
             {ritualGroups.map(({ name, activities }) => (
               <article className="card routine-card" key={name}>
                 <button
@@ -1361,60 +1855,284 @@ export default function Home() {
                   <span>Email</span>
                   <strong>{email}</strong>
                 </button>
-                <button
-                  className="profile-row"
-                  onClick={() => setToast("Goals are ready to personalize soon.")}
-                >
-                  <span>Goals</span>
-                  <ChevronRight size={17} />
-                </button>
-                <button
-                  className="profile-row"
-                  onClick={() => setToast("Subscription details are coming soon.")}
-                >
-                  <span>Subscription</span>
-                  <ChevronRight size={17} />
-                </button>
               </div>
             </section>
-            <section className="profile-section" aria-labelledby="preferences">
-              <h1 id="preferences">Preferences</h1>
+            <section className="profile-section" aria-labelledby="profile-subscription">
+              <h1 id="profile-subscription">Subscription</h1>
               <div className="profile-group">
-                <label className="profile-row profile-select-row">
-                  <span>Appearance</span>
-                  <select
-                    aria-label="Appearance"
-                    value={appearance}
-                    onChange={(event) => {
-                      setAppearance(event.target.value as Appearance);
-                      setToast(`Appearance changed to ${event.target.value}.`);
-                    }}
-                  >
-                    <option>Light</option>
-                    <option>Dark</option>
-                  </select>
-                  <ChevronDown size={17} />
-                </label>
-                <label className="profile-row profile-select-row">
-                  <span>Language</span>
-                  <select
-                    aria-label="Language"
-                    value={language}
-                    onChange={(event) => {
-                      setLanguage(event.target.value as Language);
-                      setToast(`Language changed to ${event.target.value}.`);
-                    }}
-                  >
-                    <option>English</option>
-                    <option>Indonesia</option>
-                  </select>
-                  <ChevronDown size={17} />
-                </label>
+                <div className="profile-row profile-info-row">
+                  <span>Plan</span>
+                  <strong className={activePlan ? "is-active-plan" : ""}>
+                    {activePlan ? `Odette Plus · ${activePlan.name}` : "No subscription"}
+                  </strong>
+                </div>
+                {activePlan && renewsOn && (
+                  <div className="profile-row profile-info-row">
+                    <span>Renews on</span>
+                    <strong>{renewsOn}</strong>
+                  </div>
+                )}
               </div>
             </section>
             <Button className="profile-signout" onClick={() => setModal("signOut")}>
               Sign Out
             </Button>
+          </section>
+        )}
+        {screen === "subscription" && (
+          <section className="subscription-page content">
+            <header className="subscription-hero">
+              <span>ODETTE PLUS</span>
+              <h1>Room to grow, gently</h1>
+              <p>
+                Keep every ritual, every memory, and every quiet win — with a
+                plan that fits your pace.
+              </p>
+            </header>
+
+            <div
+              className={`plan-status ${activePlan ? "is-active" : ""}`}
+              role="status"
+            >
+              <span className="plan-status-flag">
+                {activePlan ? <Check size={13} strokeWidth={3} /> : null}
+                {activePlan ? "Active" : "No subscription"}
+              </span>
+              <strong>
+                {activePlan ? `Odette Plus · ${activePlan.name}` : "You’re on Odette Free"}
+              </strong>
+              <p>
+                {activePlan
+                  ? `${rupiah(activePlan.price)} · renews on ${renewsOn}`
+                  : "Choose a plan below to open everything Odette can hold for you."}
+              </p>
+            </div>
+
+            <section className="subscription-section" aria-labelledby="choose-plan">
+              <h2 id="choose-plan">Choose your plan</h2>
+              <div
+                className="plan-list"
+                role="radiogroup"
+                aria-label="Subscription plans"
+              >
+                {plans.map((plan) => {
+                  const saving = planSavings(plan),
+                    selected = planChoice === plan.id,
+                    current = planId === plan.id;
+                  return (
+                    <motion.button
+                      key={plan.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      className={`plan-card ${selected ? "is-selected" : ""}`}
+                      onClick={() => setPlanChoice(plan.id)}
+                      whileTap={{ scale: 0.985 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      {plan.highlight && (
+                        <span className="plan-badge">
+                          {current ? "Current plan" : plan.highlight}
+                        </span>
+                      )}
+                      <span className="plan-mark" aria-hidden="true">
+                        <Check size={13} strokeWidth={3} />
+                      </span>
+                      <span className="plan-copy">
+                        <strong>{plan.name}</strong>
+                        <small>{plan.tagline}</small>
+                      </span>
+                      <span className="plan-price">
+                        <strong>{rupiah(plan.price)}</strong>
+                        <small>
+                          {plan.months === 1
+                            ? "per month"
+                            : `${rupiah(plan.price / plan.months)} / mo`}
+                        </small>
+                        {saving > 0 && <em>Save {saving}%</em>}
+                      </span>
+                    </motion.button>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="subscription-section" aria-labelledby="plan-benefits">
+              <h2 id="plan-benefits">What’s included</h2>
+              <ul className="benefit-group">
+                {planBenefits.map(([title, note]) => (
+                  <li key={title}>
+                    <span className="benefit-mark" aria-hidden="true">
+                      <Sparkles size={14} strokeWidth={1.8} />
+                    </span>
+                    <span>
+                      <strong>{title}</strong>
+                      <small>{note}</small>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+
+            <div className="subscription-actions">
+              <Button
+                className="subscription-cta"
+                disabled={planId === planChoice}
+                onClick={() => setModal("subscribe")}
+              >
+                {planId === planChoice
+                  ? "Your current plan"
+                  : activePlan
+                    ? `Switch to ${chosenPlan.name}`
+                    : `Continue · ${rupiah(chosenPlan.price)}`}
+              </Button>
+              {activePlan && (
+                <button
+                  type="button"
+                  className="subscription-cancel"
+                  onClick={() => setModal("cancelPlan")}
+                >
+                  Cancel subscription
+                </button>
+              )}
+              <p className="subscription-fine">
+                Preview pricing in IDR. No payment is taken in this prototype —
+                plans renew automatically and you can stop anytime.
+              </p>
+            </div>
+          </section>
+        )}
+        {screen === "help" && (
+          <section className="settings-page content">
+            <header className="settings-hero">
+              <span>ODETTE</span>
+              <h1>Help & Settings</h1>
+              <p>Shape a calmer space for your everyday rituals.</p>
+            </header>
+
+            <section className="settings-section" aria-labelledby="settings-preferences">
+              <h2 id="settings-preferences">Preferences</h2>
+              <div className="settings-group">
+                <div className="settings-row settings-select-row">
+                  <span>
+                    <strong>Language</strong>
+                    <small>Set your preferred app language.</small>
+                  </span>
+                  <span className="settings-value">
+                    <Dropdown
+                      label="Language"
+                      menuAlign="end"
+                      value={language}
+                      options={languageOptions}
+                      onChange={(next) => {
+                        setLanguage(next as Language);
+                        setToast("Language changed to " + next + ".");
+                      }}
+                    />
+                    <ChevronDown size={16} aria-hidden="true" />
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="settings-row"
+                  onClick={() => go("profile")}
+                >
+                  <span>
+                    <strong>Account & profile</strong>
+                    <small>Update your name, email, and photo.</small>
+                  </span>
+                  <ChevronRight size={18} aria-hidden="true" />
+                </button>
+              </div>
+            </section>
+
+            <section className="settings-section" aria-labelledby="settings-shortcuts">
+              <h2 id="settings-shortcuts">Quick actions</h2>
+              <div className="settings-group">
+                <button
+                  type="button"
+                  className="settings-row"
+                  onClick={() => go("rituals")}
+                >
+                  <span>
+                    <strong>Manage rituals</strong>
+                    <small>Create, rename, or remove a ritual.</small>
+                  </span>
+                  <ChevronRight size={18} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className="settings-row"
+                  onClick={() => go("progress")}
+                >
+                  <span>
+                    <strong>Review progress</strong>
+                    <small>See your calendar and completion trends.</small>
+                  </span>
+                  <ChevronRight size={18} aria-hidden="true" />
+                </button>
+              </div>
+            </section>
+
+            <section className="settings-section" aria-labelledby="settings-help">
+              <h2 id="settings-help">Help</h2>
+              <div className="settings-group settings-faq">
+                <details className="settings-disclosure">
+                  <summary>
+                    <span>
+                      <strong>What are today’s rituals?</strong>
+                      <small>See what is planned for the current day.</small>
+                    </span>
+                    <ChevronDown size={17} aria-hidden="true" />
+                  </summary>
+                  <p>
+                    Today shows rituals that match the date and their frequency.
+                    Morning and Night are time ranges, not required ritual names.
+                  </p>
+                </details>
+                <details className="settings-disclosure">
+                  <summary>
+                    <span>
+                      <strong>How do I change a ritual?</strong>
+                      <small>Edit its name, activities, or schedule.</small>
+                    </span>
+                    <ChevronDown size={17} aria-hidden="true" />
+                  </summary>
+                  <p>
+                    Open Rituals, choose any ritual card, then save your changes or
+                    use Delete Ritual at the bottom of the sheet.
+                  </p>
+                </details>
+                <details className="settings-disclosure">
+                  <summary>
+                    <span>
+                      <strong>Where is my data saved?</strong>
+                      <small>Your preview stays on this device.</small>
+                    </span>
+                    <ChevronDown size={17} aria-hidden="true" />
+                  </summary>
+                  <p>
+                    This preview uses local browser storage. Cloud sync and account
+                    recovery are not connected yet.
+                  </p>
+                </details>
+              </div>
+            </section>
+
+            <section className="settings-section settings-about" aria-labelledby="settings-about">
+              <h2 id="settings-about">About</h2>
+              <div className="settings-group">
+                <div className="settings-row settings-info-row">
+                  <span>Storage</span>
+                  <strong>This device</strong>
+                </div>
+                <div className="settings-row settings-info-row">
+                  <span>Version</span>
+                  <strong>Preview 1.0</strong>
+                </div>
+              </div>
+              <p>Small routines, softer days.</p>
+            </section>
           </section>
         )}
         <AnimatePresence>
@@ -1440,10 +2158,11 @@ export default function Home() {
               >
                 {(
                   [
-                    ["Profile", "profile"],
                     ["Today", "today"],
-                    ["Progress", "progress"],
                     ["Rituals", "rituals"],
+                    ["Progress", "progress"],
+                    ["Profile", "profile"],
+                    ["Subscription", "subscription"],
                     ["Help & Settings", "help"],
                   ] as const
                 ).map(([name, target], i) => (
@@ -1456,12 +2175,7 @@ export default function Home() {
                         duration: 0.32,
                         ease: easing,
                       }}
-                      onClick={() => {
-                        if (target === "help") {
-                          setMenu(false);
-                          setModal("help");
-                        } else go(target);
-                      }}
+                      onClick={() => go(target)}
                     >
                       {name}
                     </motion.button>
@@ -1484,11 +2198,17 @@ export default function Home() {
                       ? "Profile Photo"
                     : modal === "editProfile"
                       ? "Edit Personal Information"
+                    : modal === "subscribe"
+                      ? activePlan
+                        ? "Switch Plan"
+                        : "Start Odette Plus"
+                    : modal === "cancelPlan"
+                      ? "Cancel Subscription"
                     : modal === "signOut"
                       ? "Sign Out"
                     : modal === "google"
                       ? "Continue with Google"
-                      : "Help & Settings"
+                      : ""
               }
               onClose={closeModal}
             >
@@ -1500,8 +2220,14 @@ export default function Home() {
                     const target = ritualOptions.find(
                       (ritual) => ritual.name === activityRitual,
                     );
-                    if (!activityName.trim() || !activityCategory || !target)
+                    if (
+                      !activityName.trim() ||
+                      !activityCategory ||
+                      (activityRitual && !target)
+                    ) {
+                      setToast("Add a name and a category first.");
                       return;
+                    }
                     if (modal === "editActivity" && editingActivityId) {
                       const updateActivity = (items: Habit[]) =>
                         items.map((habit) =>
@@ -1509,11 +2235,11 @@ export default function Home() {
                             ? {
                                 ...habit,
                                 name: activityName.trim(),
-                                ritualName: target.name,
-                                routine: target.routine,
+                                ritualName: target?.name || "",
+                                routine: target?.routine || habit.routine,
                                 category: activityCategory,
-                                frequency: target.frequency || "Every day",
-                                time: target.time || target.routine,
+                                frequency: target?.frequency || "Today only",
+                                time: target?.time || "Any time",
                               }
                             : habit,
                         );
@@ -1529,12 +2255,14 @@ export default function Home() {
                       {
                         id: crypto.randomUUID(),
                         name: activityName.trim(),
-                        ritualName: target.name,
-                        routine: target.routine,
+                        ritualName: target?.name || "",
+                        routine: target?.routine || "Morning",
                         done: false,
                         category: activityCategory,
-                        frequency: target.frequency || "Every day",
-                        time: target.time || target.routine,
+                        frequency: target?.frequency || "Today only",
+                        time: target?.time || "Any time",
+                        scheduledDate:
+                          todayKey || localDateKey(new Date()),
                       },
                     ]);
                     setEdited(true);
@@ -1551,37 +2279,30 @@ export default function Home() {
                     maxLength={60}
                   />
                   <div className="select-field">
-                    <select
-                      aria-label="Category"
+                    <Dropdown
+                      label="Category"
                       value={activityCategory}
-                      onChange={(e) => setActivityCategory(e.target.value)}
-                      required
-                    >
-                      <option value="" disabled>
-                        Category
-                      </option>
-                      {categoryOptions.map((category) => (
-                        <option key={category}>{category}</option>
-                      ))}
-                    </select>
+                      options={activityCategoryOptions}
+                      onChange={setActivityCategory}
+                    />
                     <ChevronDown size={16} />
                   </div>
                   <div className="select-field">
-                    <select
-                      aria-label="Add to your rituals"
+                    <Dropdown
+                      label="Add to your rituals"
                       value={activityRitual}
-                      onChange={(e) => setActivityRitual(e.target.value)}
-                      required
-                    >
-                      <option value="" disabled>
-                        Add to your rituals
-                      </option>
-                      {ritualOptions.map((ritual) => (
-                        <option key={ritual.name} value={ritual.name}>
-                          {ritual.name}
-                        </option>
-                      ))}
-                    </select>
+                      options={[
+                        {
+                          value: "",
+                          label: "Add to your rituals (optional)",
+                        },
+                        ...ritualOptions.map((ritual) => ({
+                          value: ritual.name,
+                          label: ritual.name,
+                        })),
+                      ]}
+                      onChange={setActivityRitual}
+                    />
                     <ChevronDown size={16} />
                   </div>
                   <Button type="submit">
@@ -1671,52 +2392,44 @@ export default function Home() {
                     required
                     maxLength={60}
                   />
-                  <label className="form-field-label">
+                  <div className="form-field-label">
                     Category
                     <div className="select-field">
                       <Flower2 size={19} />
-                      <select
+                      <Dropdown
+                        label="Category"
                         value={ritualCategory}
-                        onChange={(e) => setRitualCategory(e.target.value)}
-                      >
-                        <option>Mind</option>
-                        <option>Wellness</option>
-                        <option>Self Care</option>
-                        <option>Body</option>
-                      </select>
+                        options={ritualCategoryOptions}
+                        onChange={setRitualCategory}
+                      />
                       <ChevronDown size={16} />
                     </div>
-                  </label>
+                  </div>
                   <div className="ritual-select-grid">
-                    <label className="form-field-label">
+                    <div className="form-field-label">
                       Frequency
                       <div className="select-field">
-                        <select
+                        <Dropdown
+                          label="Frequency"
                           value={ritualFrequency}
-                          onChange={(e) => setRitualFrequency(e.target.value)}
-                        >
-                          <option>Every day</option>
-                          <option>Weekdays</option>
-                          <option>Weekends</option>
-                        </select>
+                          options={frequencyOptions}
+                          onChange={setRitualFrequency}
+                        />
                         <ChevronDown size={16} />
                       </div>
-                    </label>
-                    <label className="form-field-label">
+                    </div>
+                    <div className="form-field-label">
                       Time Range
                       <div className="select-field">
-                        <select
+                        <Dropdown
+                          label="Time Range"
                           value={ritualTime}
-                          onChange={(e) => setRitualTime(e.target.value)}
-                        >
-                          <option>Morning</option>
-                          <option>Afternoon</option>
-                          <option>Evening</option>
-                          <option>Night</option>
-                        </select>
+                          options={timeRangeOptions}
+                          onChange={setRitualTime}
+                        />
                         <ChevronDown size={16} />
                       </div>
-                    </label>
+                    </div>
                   </div>
                   <div className="activities-editor">
                     <span className="form-field-label">Activity</span>
@@ -1808,52 +2521,44 @@ export default function Home() {
                       required
                     />
                   </label>
-                  <label className="form-field-label">
+                  <div className="form-field-label">
                     Category
                     <div className="select-field">
                       <Flower2 size={19} />
-                      <select
+                      <Dropdown
+                        label="Category"
                         value={ritualCategory}
-                        onChange={(e) => setRitualCategory(e.target.value)}
-                      >
-                        <option>Wellness</option>
-                        <option>Mind</option>
-                        <option>Self Care</option>
-                        <option>Body</option>
-                      </select>
+                        options={editRitualCategoryOptions}
+                        onChange={setRitualCategory}
+                      />
                       <ChevronDown size={16} />
                     </div>
-                  </label>
+                  </div>
                   <div className="ritual-select-grid">
-                    <label className="form-field-label">
+                    <div className="form-field-label">
                       Frequency
                       <div className="select-field">
-                        <select
+                        <Dropdown
+                          label="Frequency"
                           value={ritualFrequency}
-                          onChange={(e) => setRitualFrequency(e.target.value)}
-                        >
-                          <option>Every day</option>
-                          <option>Weekdays</option>
-                          <option>Weekends</option>
-                        </select>
+                          options={frequencyOptions}
+                          onChange={setRitualFrequency}
+                        />
                         <ChevronDown size={16} />
                       </div>
-                    </label>
-                    <label className="form-field-label">
+                    </div>
+                    <div className="form-field-label">
                       Time Range
                       <div className="select-field">
-                        <select
+                        <Dropdown
+                          label="Time Range"
                           value={ritualTime}
-                          onChange={(e) => setRitualTime(e.target.value)}
-                        >
-                          <option>Morning</option>
-                          <option>Afternoon</option>
-                          <option>Evening</option>
-                          <option>Night</option>
-                        </select>
+                          options={timeRangeOptions}
+                          onChange={setRitualTime}
+                        />
                         <ChevronDown size={16} />
                       </div>
-                    </label>
+                    </div>
                   </div>
                   <div className="activities-editor">
                     <span className="form-field-label">Activities</span>
@@ -2023,6 +2728,64 @@ export default function Home() {
                   <Button type="submit">Save Changes</Button>
                 </form>
               )}
+              {modal === "subscribe" && (
+                <div className="plan-sheet">
+                  <div className="plan-sheet-summary">
+                    <span>Odette Plus</span>
+                    <strong>{chosenPlan.name}</strong>
+                    <b>{rupiah(chosenPlan.price)}</b>
+                    <small>
+                      {chosenPlan.months === 1
+                        ? "Billed every month"
+                        : `Billed once every ${chosenPlan.months} months · ${rupiah(
+                            chosenPlan.price / chosenPlan.months,
+                          )} / mo`}
+                    </small>
+                  </div>
+                  <p className="plan-sheet-note">
+                    {activePlan
+                      ? `Your ${activePlan.name} plan will be replaced and the new period starts today.`
+                      : "Your plan starts today and renews automatically. No real payment is taken in this preview."}
+                  </p>
+                  <Button onClick={() => startPlan(chosenPlan.id)}>
+                    {activePlan ? "Switch plan" : "Activate plan"}
+                  </Button>
+                  <button
+                    type="button"
+                    className="plan-sheet-dismiss"
+                    onClick={closeModal}
+                  >
+                    Not now
+                  </button>
+                </div>
+              )}
+
+              {modal === "cancelPlan" && (
+                <div className="confirmation-content">
+                  <p>
+                    Cancel Odette Plus? You’ll keep access until{" "}
+                    {renewsOn || "the end of this period"}.
+                  </p>
+                  <div className="confirmation-actions">
+                    <button type="button" onClick={closeModal}>
+                      Keep plan
+                    </button>
+                    <button
+                      type="button"
+                      className="confirm-signout"
+                      onClick={() => {
+                        setPlanId(null);
+                        setPlanStarted("");
+                        setModal(null);
+                        setToast("Subscription cancelled. You’re on Odette Free.");
+                      }}
+                    >
+                      Yes, cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {modal === "signOut" && (
                 <div className="confirmation-content">
                   <p>Are you sure you want to sign out?</p>
@@ -2043,27 +2806,7 @@ export default function Home() {
                   </div>
                 </div>
               )}
-              {modal === "help" && (
-                <div className="help-content">
-                  <p>Small routines, softer days.</p>
-                  <p>
-                    Tap a ritual to mark it complete. Open Progress for your
-                    weekly overview, or choose a day in the monthly calendar.
-                  </p>
-                  <p>
-                    This preview saves habits on this browser. Account sync and
-                    Google sign-in aren’t connected yet.
-                  </p>
-                  <Button
-                    onClick={() => {
-                      setModal(null);
-                      go("welcome");
-                    }}
-                  >
-                    Back to welcome
-                  </Button>
-                </div>
-              )}
+
               {modal === "google" && (
                 <div className="help-content">
                   <p>Google sign-in isn’t connected in this preview yet.</p>

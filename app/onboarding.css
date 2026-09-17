@@ -253,37 +253,38 @@ html {
 }
 
 .ready {
-  padding: max(var(--entry-top), calc(var(--entry-height) * 0.12))
-    clamp(28px, 9vw, 40px)
-    max(var(--entry-bottom), calc(var(--entry-height) * 0.1));
+  padding: max(var(--entry-top), calc(var(--entry-height) * 0.122)) 40px
+    max(var(--entry-bottom), calc(var(--entry-height) * 0.107));
 }
 .ready h1 {
-  font-size: clamp(26px, 7vw, 29px);
+  font-size: 29px;
   line-height: 1.2;
 }
 .ready > p {
-  font-size: 14px;
-  margin-top: 14px;
+  font-size: 15px;
+  line-height: 1.16;
+  margin-top: 16px;
   flex-shrink: 0;
 }
 .ready-bouquet {
-  position: relative;
-  inset: auto;
-  width: 86%;
-  height: auto;
-  min-height: 0;
-  max-height: calc(var(--entry-height) * 0.54);
+  position: absolute;
+  top: calc(var(--entry-height) * 0.2654);
+  left: 16%;
+  width: 70%;
+  height: calc(var(--entry-height) * 0.4834);
   object-fit: contain;
-  margin: auto auto -36px;
-  align-self: center;
-  padding-top: 10px;
-  transform: translateX(-2%);
+  margin: 0;
+  padding: 0;
+  transform: none;
 }
 .ready > .primary {
-  position: relative;
+  position: absolute;
   z-index: 1;
-  inset: auto;
-  width: 100%;
+  top: calc(var(--entry-height) * 0.7346);
+  left: 40px;
+  width: calc(100% - 80px);
+  min-height: clamp(56px, calc(var(--entry-height) * 0.0758), 64px);
+  font-size: 17px;
 }
 
 /* Short phones: reduce artwork and gaps before shrinking controls. */

@@ -13,7 +13,7 @@ npm run dev
 
 ## Screens
 
-Use `?screen=welcome`, `signup`, `login`, `name`, `focus`, `routine`, `ready`, `today`, `daily`, `progress`, `calendar`, or `rituals`. Browser back/forward navigation is supported. Today is the main signed-in page; `daily` opens its daily overview. Add Ritual opens from the plus button on Rituals, and edit progress opens from the daily overview.
+Use `?screen=welcome`, `signup`, `login`, `name`, `focus`, `routine`, `ready`, `today`, `daily`, `progress`, `calendar`, or `rituals`. Browser back/forward navigation is supported. Today is the main signed-in page; `daily` opens its daily overview. Progress opens on its calendar, then Weekly or Monthly opens the matching Habits/Rituals report. Add Ritual opens from the plus button on Rituals, and edit progress opens from the daily overview.
 
 ## Prototype data
 
