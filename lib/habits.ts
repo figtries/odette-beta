@@ -126,7 +126,7 @@ export function habitsForDay(
 ) {
   return dateKey === todayKey
     ? habits.filter((habit) => isScheduledForDate(habit, dateKey))
-    : history[dateKey] ?? [];
+    : (history[dateKey] ?? []);
 }
 
 export function isScheduledForDate(habit: Habit, date: string) {

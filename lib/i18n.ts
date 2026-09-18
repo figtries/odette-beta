@@ -73,8 +73,10 @@ const indonesian: Record<string, string> = {
 
   // Daily
   "Daily overview": "Ringkasan harian",
-  "No rituals are scheduled for this date.": "Tidak ada ritual yang dijadwalkan pada tanggal ini.",
-  "No activity recorded for this date.": "Belum ada aktivitas yang tercatat pada tanggal ini.",
+  "No rituals are scheduled for this date.":
+    "Tidak ada ritual yang dijadwalkan pada tanggal ini.",
+  "No activity recorded for this date.":
+    "Belum ada aktivitas yang tercatat pada tanggal ini.",
   "Log your activity": "Catat aktivitasmu",
   Completed: "Selesai",
   Missed: "Terlewat",
@@ -103,8 +105,6 @@ const indonesian: Record<string, string> = {
   "Longest Streak": "Rentetan Terpanjang",
   "You’re most consistent with\nyour {category} habits.":
     "Kamu paling konsisten dengan\nkebiasaan {category}mu.",
-  "Your habits are still finding\ntheir rhythm.":
-    "Kebiasaanmu masih mencari\nritmenya.",
   "Create a ritual to see how its rhythm settles over time.":
     "Buat ritual untuk melihat bagaimana ritmenya terbentuk seiring waktu.",
   "Rituals consistency": "Konsistensi ritual",

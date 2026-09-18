@@ -13,9 +13,12 @@ import {
 import { createPortal } from "react-dom";
 import {
   AnimatePresence,
+  animate as animateValue,
   motion,
   MotionConfig,
   useReducedMotion,
+  type Transition,
+  type Variants,
 } from "framer-motion";
 import {
   BookOpen,
@@ -98,7 +101,175 @@ type ProgressTab = "habits" | "rituals";
 type ProgressPeriod = "weekly" | "monthly";
 type ProgressView = "calendar" | "report";
 type Routine = Habit["routine"];
+/* Motion vocabulary. Everything in Odette leans on the same few curves so the
+   whole app feels like one hand drew it: long ease-out entrances, short
+   ease-in exits, and springs that settle instead of bouncing. */
 const easing = [0.22, 1, 0.36, 1] as const;
+const exitEasing = [0.55, 0, 0.75, 0] as const;
+const softSpring: Transition = {
+  type: "spring",
+  stiffness: 190,
+  damping: 26,
+  mass: 0.9,
+};
+/* Critically damped so a sheet never overshoots past the bottom edge. */
+const sheetSpring: Transition = {
+  type: "spring",
+  stiffness: 210,
+  damping: 30,
+  mass: 1,
+};
+const tapSpring: Transition = {
+  type: "spring",
+  stiffness: 480,
+  damping: 34,
+  mass: 0.6,
+};
+const popSpring: Transition = {
+  type: "spring",
+  stiffness: 520,
+  damping: 26,
+  mass: 0.7,
+};
+/* Screens drift up out of a soft blur and stagger their own children. */
+const makeScreenMotion = (blur: boolean): Variants => ({
+  initial: { opacity: 0, y: 18, ...(blur ? { filter: "blur(8px)" } : null) },
+  animate: {
+    opacity: 1,
+    y: 0,
+    ...(blur ? { filter: "blur(0px)" } : null),
+    transition: {
+      duration: 0.55,
+      ease: easing,
+      staggerChildren: 0.055,
+      delayChildren: 0.05,
+    },
+  },
+  exit: {
+    opacity: 0,
+    y: -12,
+    ...(blur ? { filter: "blur(8px)" } : null),
+    transition: { duration: 0.26, ease: exitEasing },
+  },
+});
+const screenMotion = makeScreenMotion(true);
+const screenMotionFlat = makeScreenMotion(false);
+const rise: Variants = {
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.62, ease: easing } },
+};
+const riseClose: Variants = {
+  initial: { opacity: 0, y: 12 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.5, ease: easing } },
+};
+const fadeIn: Variants = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1, transition: { duration: 0.75, ease: easing } },
+};
+/* Lists carry their own stagger so a newly added card still cascades in. */
+const listStagger: Variants = {
+  initial: {},
+  animate: { transition: { staggerChildren: 0.05, delayChildren: 0.04 } },
+};
+const listItem: Variants = {
+  initial: { opacity: 0, y: 16, scale: 0.98 },
+  animate: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { duration: 0.5, ease: easing },
+  },
+  exit: {
+    opacity: 0,
+    y: -8,
+    scale: 0.97,
+    transition: { duration: 0.24, ease: exitEasing },
+  },
+};
+const optionItem: Variants = {
+  initial: { opacity: 0, y: 14 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.42, ease: easing } },
+  exit: { opacity: 0, y: -6, transition: { duration: 0.2, ease: exitEasing } },
+};
+const calendarGrid: Variants = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1, transition: { staggerChildren: 0.012 } },
+  exit: { opacity: 0, transition: { duration: 0.16, ease: exitEasing } },
+};
+const calendarDay: Variants = {
+  initial: { opacity: 0, scale: 0.72 },
+  animate: {
+    opacity: 1,
+    scale: 1,
+    transition: { duration: 0.34, ease: easing },
+  },
+};
+const swapUp: Variants = {
+  initial: { opacity: 0, y: 7 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.26, ease: easing } },
+  exit: { opacity: 0, y: -7, transition: { duration: 0.18, ease: exitEasing } },
+};
+const chipItem: Variants = {
+  initial: { opacity: 0, scale: 0.7, y: 4 },
+  animate: { opacity: 1, scale: 1, y: 0, transition: popSpring },
+  exit: {
+    opacity: 0,
+    scale: 0.7,
+    transition: { duration: 0.16, ease: exitEasing },
+  },
+};
+const ddOption: Variants = {
+  initial: { opacity: 0, y: -5 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.24, ease: easing } },
+};
+/* `staggerChildren` only reaches children through a named variant, so any menu
+   that cascades its items has to drive itself by label, not by object. */
+const emojiPicker: Variants = {
+  initial: { opacity: 0, y: -8, scale: 0.97 },
+  animate: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { ...softSpring, staggerChildren: 0.012 },
+  },
+  exit: {
+    opacity: 0,
+    y: -8,
+    scale: 0.97,
+    transition: { duration: 0.2, ease: exitEasing },
+  },
+};
+const makeMenuMotion = (reduced: boolean): Variants => ({
+  initial: reduced ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: -8 },
+  animate: {
+    opacity: 1,
+    scale: 1,
+    y: 0,
+    transition: reduced
+      ? { duration: 0 }
+      : { ...softSpring, staggerChildren: 0.03 },
+  },
+  exit: {
+    opacity: 0,
+    scale: 0.97,
+    y: -6,
+    transition: { duration: reduced ? 0 : 0.16, ease: exitEasing },
+  },
+});
+const menuMotion = makeMenuMotion(false);
+const menuMotionReduced = makeMenuMotion(true);
+const sheetMotion: Variants = {
+  initial: { y: "100%" },
+  animate: {
+    y: 0,
+    transition: { ...sheetSpring, staggerChildren: 0.05, delayChildren: 0.14 },
+  },
+  exit: { y: "100%", transition: { duration: 0.34, ease: exitEasing } },
+};
+const cardHover = { y: -2, transition: softSpring };
+const cardTap = { scale: 0.985, transition: tapSpring };
+const rowHover = { x: 2, transition: softSpring };
+const rowTap = { scale: 0.99, transition: tapSpring };
 const focusOptions = [
   "Mental Wellness",
   "Physical Health",
@@ -116,6 +287,8 @@ const routineOptions = [
   "Pray/Meditate",
   "Sleep before 11 PM",
 ];
+/* Laid out 8 per row so the source reads like the grid it renders. */
+// prettier-ignore
 const emojiOptions = [
   "😀", "😃", "😄", "😁", "😊", "🥰", "😍", "🤩",
   "😌", "😇", "🥹", "😂", "🙂", "🙃", "😉", "😎",
@@ -251,19 +424,71 @@ function formatDailyDate(date: Date, locale: string) {
 function Flower({
   name,
   className = "",
+  float = false,
+  delay = 0,
 }: {
   name: string;
   className?: string;
+  float?: boolean;
+  delay?: number;
 }) {
+  const reduced = useReducedMotion();
+  const src = `/images/${name}.webp`;
+  if (reduced)
+    return (
+      <img
+        draggable={false}
+        src={src}
+        alt=""
+        aria-hidden="true"
+        className={className}
+      />
+    );
+  /* Transforms only: the background blooms set their own opacity in CSS and an
+     inline one from Motion would wash them out to full strength. */
   return (
-    <img
+    <motion.img
       draggable={false}
-      src={`/images/${name}.webp`}
+      src={src}
       alt=""
       aria-hidden="true"
       className={className}
+      initial={{ scale: 0.93 }}
+      animate={{
+        scale: 1,
+        y: float ? [0, -7, 0] : 0,
+        rotate: float ? [0, 0.7, 0, -0.7, 0] : 0,
+      }}
+      transition={{
+        scale: { duration: 1.2, ease: easing, delay },
+        y: { duration: 8.5, repeat: Infinity, ease: "easeInOut", delay },
+        rotate: { duration: 13, repeat: Infinity, ease: "easeInOut", delay },
+      }}
     />
   );
+}
+/* Percentages and streaks count up instead of popping to their final value. */
+function Counter({ value, from = 0 }: { value: number; from?: number }) {
+  const reduced = useReducedMotion();
+  const [shown, setShown] = useState(reduced ? value : from);
+  const current = useRef(reduced ? value : from);
+  useEffect(() => {
+    if (reduced) {
+      current.current = value;
+      setShown(value);
+      return;
+    }
+    const controls = animateValue(current.current, value, {
+      duration: 1.1,
+      ease: easing,
+      onUpdate: (next) => {
+        current.current = next;
+        setShown(Math.round(next));
+      },
+    });
+    return () => controls.stop();
+  }, [value, reduced]);
+  return <>{shown}</>;
 }
 function GoogleLogo() {
   return (
@@ -306,8 +531,9 @@ function Button({
       className={`primary ${className}`}
       onClick={onClick}
       disabled={disabled}
-      whileTap={{ scale: disabled ? 1 : 0.98 }}
-      transition={{ duration: 0.2 }}
+      variants={rise}
+      whileHover={disabled ? undefined : { y: -2, transition: softSpring }}
+      whileTap={{ scale: disabled ? 1 : 0.972, transition: tapSpring }}
     >
       {children}
     </motion.button>
@@ -317,10 +543,23 @@ function Dot({ checked, tick = false }: { checked: boolean; tick?: boolean }) {
   return (
     <motion.span
       className={`dot ${checked ? "checked" : ""}`}
-      animate={{ scale: checked ? [1, 0.88, 1] : 1 }}
-      transition={{ duration: 0.25 }}
+      animate={{ scale: checked ? [1, 0.82, 1.1, 1] : 1 }}
+      transition={{ duration: 0.45, ease: easing, times: [0, 0.22, 0.6, 1] }}
     >
-      {checked && tick && <Check size={12} strokeWidth={3} />}
+      <AnimatePresence initial={false}>
+        {checked && tick && (
+          <motion.span
+            key="tick"
+            className="dot-tick"
+            initial={{ scale: 0, opacity: 0, rotate: -25 }}
+            animate={{ scale: 1, opacity: 1, rotate: 0 }}
+            exit={{ scale: 0, opacity: 0, rotate: 20 }}
+            transition={popSpring}
+          >
+            <Check size={12} strokeWidth={3} />
+          </motion.span>
+        )}
+      </AnimatePresence>
     </motion.span>
   );
 }
@@ -338,7 +577,7 @@ function Bar({ value }: { value: number }) {
       <motion.div
         initial={{ width: 0 }}
         animate={{ width: `${value}%` }}
-        transition={{ duration: 1.1, ease: easing }}
+        transition={{ duration: 1.2, ease: easing, delay: 0.1 }}
       />
     </div>
   );
@@ -347,7 +586,12 @@ function Ring({ value }: { value: number }) {
   const t = useT();
   const reduced = useReducedMotion();
   return (
-    <div className="ring-wrap">
+    <motion.div
+      className="ring-wrap"
+      variants={rise}
+      initial="initial"
+      animate="animate"
+    >
       <div
         className="ring"
         role="progressbar"
@@ -371,13 +615,25 @@ function Ring({ value }: { value: number }) {
             transition={{ duration: reduced ? 0 : 1.4, ease: easing }}
           />
         </svg>
-        <div>
-          <strong>{value}%</strong>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.7, ease: easing, delay: 0.2 }}
+        >
+          <strong>
+            <Counter value={value} />%
+          </strong>
           <span>{t("DONE")}</span>
-        </div>
+        </motion.div>
       </div>
-      <p>{t(value === 100 ? "Beautifully done!" : "Good day!")}</p>
-    </div>
+      <motion.p
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: easing, delay: 0.45 }}
+      >
+        {t(value === 100 ? "Beautifully done!" : "Good day!")}
+      </motion.p>
+    </motion.div>
   );
 }
 type DropdownOption = { value: string; label: string; disabled?: boolean };
@@ -475,13 +731,14 @@ function Dropdown({
   }, [open, place, value]);
   return (
     <>
-      <button
+      <motion.button
         ref={trigger}
         type="button"
         className="dd-trigger"
         aria-label={label}
         aria-haspopup="listbox"
         aria-expanded={open}
+        whileTap={{ scale: 0.97, transition: tapSpring }}
         onClick={() => {
           if (open) {
             setOpen(false);
@@ -492,68 +749,158 @@ function Dropdown({
         }}
       >
         <span className="dd-label">{current ? t(current.label) : ""}</span>
-        {chevron && <ChevronDown size={14} aria-hidden="true" />}
-      </button>
-      {open && box
+        {chevron && (
+          <motion.span
+            className="dd-chevron"
+            animate={{ rotate: open ? 180 : 0 }}
+            transition={softSpring}
+          >
+            <ChevronDown size={14} aria-hidden="true" />
+          </motion.span>
+        )}
+      </motion.button>
+      {/* The portal stays mounted once placed so the menu can animate out. */}
+      {box
         ? createPortal(
-            <motion.div
-              ref={menu}
-              role="listbox"
-              aria-label={label}
-              className="dd-menu"
-              style={{
-                top: box.top,
-                left: box.left,
-                width: box.width,
-                maxHeight: box.height,
-              }}
-              initial={
-                reduced ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: -6 }
-              }
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              transition={{ duration: reduced ? 0 : 0.18, ease: easing }}
-            >
-              {options.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  role="option"
-                  data-value={option.value}
-                  aria-selected={!option.disabled && option.value === value}
-                  disabled={option.disabled}
-                  className="dd-option"
-                  onClick={() => {
-                    setOpen(false);
-                    trigger.current?.focus();
-                    if (option.value !== value) onChange(option.value);
+            <AnimatePresence>
+              {open && (
+                <motion.div
+                  ref={menu}
+                  role="listbox"
+                  aria-label={label}
+                  className="dd-menu"
+                  style={{
+                    top: box.top,
+                    left: box.left,
+                    width: box.width,
+                    maxHeight: box.height,
+                    transformOrigin: "top center",
                   }}
+                  variants={reduced ? menuMotionReduced : menuMotion}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
                 >
-                  <span>{t(option.label)}</span>
-                  {option.value === value && !option.disabled && (
-                    <Check size={19} aria-hidden="true" />
-                  )}
-                </button>
-              ))}
-            </motion.div>,
+                  {options.map((option) => (
+                    <motion.button
+                      key={option.value}
+                      type="button"
+                      role="option"
+                      data-value={option.value}
+                      aria-selected={!option.disabled && option.value === value}
+                      disabled={option.disabled}
+                      className="dd-option"
+                      variants={ddOption}
+                      whileTap={
+                        option.disabled
+                          ? undefined
+                          : { scale: 0.975, transition: tapSpring }
+                      }
+                      onClick={() => {
+                        setOpen(false);
+                        trigger.current?.focus();
+                        if (option.value !== value) onChange(option.value);
+                      }}
+                    >
+                      <span>{t(option.label)}</span>
+                      {option.value === value && !option.disabled && (
+                        <motion.span
+                          className="dd-check"
+                          initial={{ scale: 0, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          transition={popSpring}
+                        >
+                          <Check size={19} aria-hidden="true" />
+                        </motion.span>
+                      )}
+                    </motion.button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>,
             document.body,
           )
         : null}
     </>
   );
 }
+/* A details/summary pair cannot ease its height open, so the FAQ rows run on
+   state instead: the caret turns and the answer unrolls. */
+function Disclosure({
+  title,
+  hint,
+  children,
+}: {
+  title: string;
+  hint: string;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <motion.div
+      className={`settings-disclosure ${open ? "is-open" : ""}`}
+      variants={optionItem}
+    >
+      <motion.button
+        type="button"
+        className="settings-disclosure-summary"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+        whileTap={{ scale: 0.99, transition: tapSpring }}
+      >
+        <span>
+          <strong>{title}</strong>
+          <small>{hint}</small>
+        </span>
+        <motion.span
+          className="settings-disclosure-caret"
+          animate={{ rotate: open ? 180 : 0 }}
+          transition={softSpring}
+        >
+          <ChevronDown size={17} aria-hidden="true" />
+        </motion.span>
+      </motion.button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            key="answer"
+            className="settings-disclosure-body"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{
+              height: "auto",
+              opacity: 1,
+              transition: {
+                height: { duration: 0.4, ease: easing },
+                opacity: { duration: 0.3, ease: easing, delay: 0.08 },
+              },
+            }}
+            exit={{
+              height: 0,
+              opacity: 0,
+              transition: {
+                height: { duration: 0.3, ease: exitEasing },
+                opacity: { duration: 0.16 },
+              },
+            }}
+          >
+            <p>{children}</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
 function brand(text: ReactNode): ReactNode {
   if (typeof text !== "string") return text;
-  return text
-    .split(/(odette)/gi)
-    .map((part, index) =>
-      part.toLowerCase() === "odette" ? (
-        <span key={index} className="odette-mark">
-          {part}
-        </span>
-      ) : (
-        part
-      ),
-    );
+  return text.split(/(odette)/gi).map((part, index) =>
+    part.toLowerCase() === "odette" ? (
+      <span key={index} className="odette-mark">
+        {part}
+      </span>
+    ) : (
+      part
+    ),
+  );
 }
 function Dialog({
   children,
@@ -602,8 +949,8 @@ function Dialog({
         className="scrim"
         onClick={onClose}
         initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
+        animate={{ opacity: 1, transition: { duration: 0.36, ease: easing } }}
+        exit={{ opacity: 0, transition: { duration: 0.26, ease: exitEasing } }}
       />
       <motion.div
         ref={ref}
@@ -611,22 +958,28 @@ function Dialog({
         aria-modal="true"
         aria-label={title}
         className="sheet"
-        initial={{ y: "100%" }}
-        animate={{ y: 0 }}
-        exit={{ y: "100%" }}
-        transition={{ duration: 0.5, ease: easing }}
+        variants={sheetMotion}
+        initial="initial"
+        animate="animate"
+        exit="exit"
       >
-        <span className="sheet-handle" aria-hidden="true" />
-        <header>
-          <button
+        <motion.span
+          className="sheet-handle"
+          aria-hidden="true"
+          variants={riseClose}
+        />
+        <motion.header variants={riseClose}>
+          <motion.button
             aria-label={t("Close dialog")}
             onClick={onClose}
             className="circle-button"
+            whileHover={{ rotate: 90, transition: softSpring }}
+            whileTap={{ scale: 0.88, transition: tapSpring }}
           >
             <X size={16} />
-          </button>
+          </motion.button>
           <h2>{brand(title)}</h2>
-        </header>
+        </motion.header>
         {children}
       </motion.div>
     </div>
@@ -647,8 +1000,7 @@ export default function Home() {
     [menu, setMenu] = useState(false),
     [modal, setModal] = useState<Modal>(null),
     [progressTab, setProgressTab] = useState<ProgressTab>("habits"),
-    [progressPeriod, setProgressPeriod] =
-      useState<ProgressPeriod>("monthly"),
+    [progressPeriod, setProgressPeriod] = useState<ProgressPeriod>("monthly"),
     [progressView, setProgressView] = useState<ProgressView>("calendar"),
     [month, setMonth] = useState(5),
     [year, setYear] = useState(2020),
@@ -686,6 +1038,8 @@ export default function Home() {
     });
   const t = useMemo(() => makeTranslator(language), [language]);
   const locale = localeOf(language);
+  const reduced = useReducedMotion();
+  const screenAnim = reduced ? screenMotionFlat : screenMotion;
   const menuRef = useRef<HTMLDivElement>(null),
     menuButton = useRef<HTMLButtonElement>(null),
     uploadInput = useRef<HTMLInputElement>(null),
@@ -700,7 +1054,11 @@ export default function Home() {
     }
     setScreen(next);
     setMenu(false);
-    window.history.pushState({}, "", `?screen=${next}${dateKey ? `&date=${dateKey}` : ""}`);
+    window.history.pushState(
+      {},
+      "",
+      `?screen=${next}${dateKey ? `&date=${dateKey}` : ""}`,
+    );
     window.scrollTo(0, 0);
   }
   function applyAuthIdentity(isSignup: boolean) {
@@ -755,12 +1113,16 @@ export default function Home() {
         if (typeof s.habitsDateKey === "string")
           setHabitsDateKey(s.habitsDateKey);
         if (s.activityHistory && typeof s.activityHistory === "object")
-          setActivityHistory(Object.fromEntries(
-            Object.entries(s.activityHistory).filter(([date, entries]) =>
-              /^\d{4}-\d{2}-\d{2}$/.test(date) &&
-              Array.isArray(entries) && entries.every(isHabit),
-            ),
-          ) as ActivityHistory);
+          setActivityHistory(
+            Object.fromEntries(
+              Object.entries(s.activityHistory).filter(
+                ([date, entries]) =>
+                  /^\d{4}-\d{2}-\d{2}$/.test(date) &&
+                  Array.isArray(entries) &&
+                  entries.every(isHabit),
+              ),
+            ) as ActivityHistory,
+          );
         if (typeof s.nickname === "string") setNickname(s.nickname);
         if (typeof s.nicknameEmoji === "string")
           setNicknameEmoji(s.nicknameEmoji);
@@ -895,13 +1257,20 @@ export default function Home() {
       ? habits.filter((habit) => isScheduledForDate(habit, todayKey))
       : habits,
     isHistoricalDay = Boolean(detailDateKey && detailDateKey !== todayKey),
-    dailyHabits = detailDateKey > todayKey
-      ? habits
-          .filter((habit) => habit.ritualName?.trim() && isScheduledForDate(habit, detailDateKey))
-          .map((habit) => ({ ...habit, done: false }))
-      : isHistoricalDay
-        ? habitsForDay(detailDateKey, todayKey, habits, activityHistory)
-      : draftDateKey === todayKey ? draft : todayHabits,
+    dailyHabits =
+      detailDateKey > todayKey
+        ? habits
+            .filter(
+              (habit) =>
+                habit.ritualName?.trim() &&
+                isScheduledForDate(habit, detailDateKey),
+            )
+            .map((habit) => ({ ...habit, done: false }))
+        : isHistoricalDay
+          ? habitsForDay(detailDateKey, todayKey, habits, activityHistory)
+          : draftDateKey === todayKey
+            ? draft
+            : todayHabits,
     percent = todayHabits.length ? completion(todayHabits, edited) : 0,
     dailyPercent = completion(dailyHabits, true),
     appShell = [
@@ -933,29 +1302,52 @@ export default function Home() {
     );
   };
   const getRitualName = (habit: Habit) => habit.ritualName?.trim() || "";
-  const dailyStandaloneHabits = dailyHabits.filter((habit) => !getRitualName(habit));
-  const dailyRitualGroups = ritualGroupsForDate(dailyHabits, detailDateKey || todayKey);
+  const dailyStandaloneHabits = dailyHabits.filter(
+    (habit) => !getRitualName(habit),
+  );
+  const dailyRitualGroups = ritualGroupsForDate(
+    dailyHabits,
+    detailDateKey || todayKey,
+  );
+  /* Sharing a layoutId lets a habit glide between Missed and Completed
+     instead of blinking out of one list and into the other. */
   const renderDailyHabit = (habit: Habit) => (
-    <div className="daily-habit" key={habit.id}>
-      <button
+    <motion.div
+      className="daily-habit"
+      key={habit.id}
+      layoutId={`daily-habit-${habit.id}`}
+      layout="position"
+      variants={listItem}
+      transition={softSpring}
+    >
+      <motion.button
         className="daily-habit-toggle"
         disabled={isHistoricalDay}
+        whileTap={
+          isHistoricalDay ? undefined : { scale: 0.88, transition: tapSpring }
+        }
         onClick={() => setDraft((items) => toggleHabit(items, habit.id))}
         aria-label={`${habit.done ? "Uncheck" : "Complete"} ${habit.name}`}
         aria-pressed={habit.done}
       >
         <Dot tick checked={habit.done} />
-      </button>
-      <button
+      </motion.button>
+      <motion.button
         className="daily-habit-edit"
         disabled={isHistoricalDay}
+        whileHover={
+          isHistoricalDay ? undefined : { x: 3, transition: softSpring }
+        }
+        whileTap={
+          isHistoricalDay ? undefined : { scale: 0.985, transition: tapSpring }
+        }
         onClick={() => openActivityEditor(habit)}
         aria-label={`Edit ${habit.name}`}
       >
         <span>{habit.name}</span>
         {!isHistoricalDay && <Pencil size={14} aria-hidden="true" />}
-      </button>
-    </div>
+      </motion.button>
+    </motion.div>
   );
   const ritualGroups = Array.from(
     todayHabits.reduce((groups, habit) => {
@@ -1026,9 +1418,7 @@ export default function Home() {
     setRitualCategory(activities[0]?.category || "Wellness");
     setRitualFrequency(activities[0]?.frequency || "Every day");
     setRitualTime(
-      ["Morning", "Afternoon", "Evening", "Night"].includes(
-        activities[0]?.time,
-      )
+      ["Morning", "Afternoon", "Evening", "Night"].includes(activities[0]?.time)
         ? activities[0].time
         : routine,
     );
@@ -1115,6 +1505,32 @@ export default function Home() {
     ritualPeriodDays,
   );
   const topCategory = categoryRanking[0];
+  const bottomCategory =
+    categoryRanking.length > 1
+      ? categoryRanking[categoryRanking.length - 1]
+      : undefined;
+  /* Both cards are built from tracked activities only: with nothing logged for
+     the period there is no ranking, so the section renders nothing rather than
+     inventing a category and a percentage. */
+  const consistencyCards = [
+    topCategory && {
+      title: "Most consistent",
+      name: topCategory.category,
+      value: topCategory.value,
+      icon: <Sparkles aria-hidden="true" size={17} strokeWidth={1.8} />,
+    },
+    bottomCategory && {
+      title: "Least consistent",
+      name: bottomCategory.category,
+      value: bottomCategory.value,
+      icon: <BookOpen aria-hidden="true" size={17} strokeWidth={1.8} />,
+    },
+  ].filter(Boolean) as {
+    title: string;
+    name: string;
+    value: number;
+    icon: ReactNode;
+  }[];
   const ritualSummaries = allRitualGroups.map(({ name, activities }) => {
     const doneCount = activities.filter((activity) => activity.done).length;
     const value = activities.length
@@ -1145,8 +1561,6 @@ export default function Home() {
           overall: edited ? percent : 78,
           currentStreak: edited ? (habits.some((h) => h.done) ? 1 : 0) : 6,
           longestStreak: edited ? (habits.some((h) => h.done) ? 1 : 0) : 7,
-          most: 86,
-          least: 43,
           periodLabel: "This Week",
           average: ritualAverage,
           bestLabel: "Best day",
@@ -1156,8 +1570,6 @@ export default function Home() {
           overall: percent,
           currentStreak: edited ? (habits.some((h) => h.done) ? 1 : 0) : 12,
           longestStreak: edited ? (habits.some((h) => h.done) ? 1 : 0) : 12,
-          most: 82,
-          least: 32,
           periodLabel: "This Month",
           average: ritualAverage,
           bestLabel: "Best week",
@@ -1183,1921 +1595,2559 @@ export default function Home() {
       transition={{ duration: 0.45, ease: easing }}
     >
       <I18nContext.Provider value={t}>
-      <main className={`app screen-${screen}`}>
-        {appShell && (
-          <>
-            <Flower name="lotus-leaf-stem" className="today-flower" />
-            <nav className="topbar" aria-label={t("Page navigation")}>
-              {screen !== "today" ? (
-                <button
-                  aria-label={t(
-                    screen === "progress" && progressView === "report"
-                      ? "Back to Progress calendar"
-                      : "Back to Today",
+        <main className={`app screen-${screen}`}>
+          {appShell && (
+            <>
+              <Flower name="lotus-leaf-stem" className="today-flower" float />
+              <motion.nav
+                className="topbar"
+                aria-label={t("Page navigation")}
+                initial={{ opacity: 0, y: -14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.65, ease: easing }}
+              >
+                <AnimatePresence mode="wait" initial={false}>
+                  {screen !== "today" ? (
+                    <motion.button
+                      key="back"
+                      aria-label={t(
+                        screen === "progress" && progressView === "report"
+                          ? "Back to Progress calendar"
+                          : "Back to Today",
+                      )}
+                      className="back-button"
+                      initial={{ opacity: 0, x: -12, scale: 0.8 }}
+                      animate={{ opacity: 1, x: 0, scale: 1 }}
+                      exit={{ opacity: 0, x: -12, scale: 0.8 }}
+                      transition={{ duration: 0.26, ease: easing }}
+                      whileHover={{ x: -3, transition: softSpring }}
+                      whileTap={{ scale: 0.86, transition: tapSpring }}
+                      onClick={() => {
+                        if (
+                          screen === "progress" &&
+                          progressView === "report"
+                        ) {
+                          setProgressView("calendar");
+                          setProgressTab("habits");
+                          window.history.pushState({}, "", "?screen=progress");
+                          window.scrollTo(0, 0);
+                        } else {
+                          go("today");
+                        }
+                      }}
+                    >
+                      <ChevronLeft size={22} />
+                    </motion.button>
+                  ) : (
+                    <span key="spacer" />
                   )}
-                  className="back-button"
-                  onClick={() => {
-                    if (screen === "progress" && progressView === "report") {
-                      setProgressView("calendar");
-                      setProgressTab("habits");
-                      window.history.pushState({}, "", "?screen=progress");
-                      window.scrollTo(0, 0);
-                    } else {
-                      go("today");
-                    }
-                  }}
+                </AnimatePresence>
+                <motion.button
+                  ref={menuButton}
+                  className={`hamburger ${menu ? "is-open" : ""}`}
+                  aria-label={menu ? "Close menu" : "Open menu"}
+                  aria-expanded={menu}
+                  aria-controls="main-menu"
+                  onClick={() => setMenu((v) => !v)}
+                >
+                  <motion.span
+                    animate={{ y: menu ? 4 : 0, rotate: menu ? 45 : 0 }}
+                    transition={softSpring}
+                  />
+                  <motion.span
+                    animate={{ y: menu ? -4 : 0, rotate: menu ? -45 : 0 }}
+                    transition={softSpring}
+                  />
+                </motion.button>
+              </motion.nav>
+            </>
+          )}
+          {/* One screen holds the stage at a time: the old one clears out
+            before the next drifts in, so nothing crossfades into itself. */}
+          <AnimatePresence mode="wait">
+            {screen === "welcome" && (
+              <motion.section
+                key={"welcome"}
+                className="welcome"
+                variants={screenAnim}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+              >
+                <motion.h1 className="wordmark" variants={rise}>
+                  Odette
+                </motion.h1>
+                <motion.p className="motto" variants={rise}>
+                  {language === "Indonesia" ? (
+                    <>
+                      rutinitas kecil,
+                      <br />
+                      hari yang <span>tenang</span>
+                    </>
+                  ) : (
+                    <>
+                      small routines,
+                      <br />
+                      <span>softer</span> days
+                    </>
+                  )}
+                </motion.p>
+                <motion.div className="welcome-actions" variants={rise}>
+                  <div className="welcome-cta">
+                    <div className="welcome-plant">
+                      <Flower
+                        name="12"
+                        className="welcome-complete"
+                        delay={0.15}
+                      />
+                    </div>
+                    <Button onClick={() => go("signup")}>
+                      {t("Get started")}
+                    </Button>
+                  </div>
+                  <motion.p variants={fadeIn}>
+                    {t("Already have an account?")}{" "}
+                    <motion.button
+                      onClick={() => go("login")}
+                      whileHover={{ y: -1, transition: softSpring }}
+                      whileTap={{ scale: 0.94, transition: tapSpring }}
+                    >
+                      {t("Log in")}
+                    </motion.button>
+                  </motion.p>
+                </motion.div>
+              </motion.section>
+            )}
+            {(screen === "signup" || screen === "login") && (
+              <motion.section
+                key={screen}
+                className={`auth ${screen}`}
+                variants={screenAnim}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+              >
+                <motion.button
+                  className="back-button auth-back"
+                  aria-label={t("Back to welcome")}
+                  onClick={() => go("welcome")}
+                  variants={rise}
+                  whileHover={{ x: -3, transition: softSpring }}
+                  whileTap={{ scale: 0.86, transition: tapSpring }}
                 >
                   <ChevronLeft size={22} />
-                </button>
-              ) : (
-                <span />
-              )}
-              <motion.button
-                ref={menuButton}
-                className={`hamburger ${menu ? "is-open" : ""}`}
-                aria-label={menu ? "Close menu" : "Open menu"}
-                aria-expanded={menu}
-                aria-controls="main-menu"
-                onClick={() => setMenu((v) => !v)}
-              >
-                <motion.span
-                  animate={{ y: menu ? 4 : 0, rotate: menu ? 45 : 0 }}
-                />
-                <motion.span
-                  animate={{ y: menu ? -4 : 0, rotate: menu ? -45 : 0 }}
-                />
-              </motion.button>
-            </nav>
-          </>
-        )}
-        {screen === "welcome" && (
-          <section className="welcome">
-            <h1 className="wordmark">Odette</h1>
-            <p className="motto">
-              {language === "Indonesia" ? (
-                <>
-                  rutinitas kecil,
-                  <br />
-                  hari yang <span>tenang</span>
-                </>
-              ) : (
-                <>
-                  small routines,
-                  <br />
-                  <span>softer</span> days
-                </>
-              )}
-            </p>
-            <div className="welcome-actions">
-              <div className="welcome-cta">
-                <div className="welcome-plant">
-                  <Flower name="12" className="welcome-complete" />
-                </div>
-                <Button onClick={() => go("signup")}>{t("Get started")}</Button>
-              </div>
-              <p>
-                {t("Already have an account?")}{" "}
-                <button onClick={() => go("login")}>{t("Log in")}</button>
-              </p>
-            </div>
-          </section>
-        )}
-        {(screen === "signup" || screen === "login") && (
-          <section className={`auth ${screen}`}>
-            <button
-              className="back-button auth-back"
-              aria-label={t("Back to welcome")}
-              onClick={() => go("welcome")}
-            >
-              <ChevronLeft size={22} />
-            </button>
-            <Flower name="lotus-bud" className="auth-bud" />
-            <h1>{t(screen === "signup" ? "Create an account" : "Log in")}</h1>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                applyAuthIdentity(screen === "signup");
-                go(screen === "signup" ? "name" : "today");
-              }}
-            >
-              {screen === "signup" && (
-                <>
-                  <input
-                    aria-label={t("First name")}
-                    placeholder={t("First name")}
-                    autoComplete="given-name"
-                    required
-                    value={authFirstName}
-                    onChange={(e) => {
-                      setAuthFirstName(e.target.value);
-                      setNickname(e.target.value);
-                    }}
-                  />
-                  <input
-                    aria-label={t("Last name")}
-                    placeholder={t("Last name")}
-                    autoComplete="family-name"
-                    required
-                    value={authLastName}
-                    onChange={(e) => setAuthLastName(e.target.value)}
-                  />
-                </>
-              )}
-              <input
-                aria-label={t("Email")}
-                placeholder={t("Email")}
-                type="email"
-                autoComplete="email"
-                required
-                value={authEmail}
-                onChange={(e) => setAuthEmail(e.target.value)}
-              />
-              <input
-                aria-label={t("Password")}
-                placeholder={t("Password")}
-                type="password"
-                autoComplete={
-                  screen === "signup" ? "new-password" : "current-password"
-                }
-                minLength={6}
-                required
-              />
-              <div className="divider">
-                <span />
-                {t("Or")}
-                <span />
-              </div>
-              <Button className="google" onClick={() => setModal("google")}>
-                <GoogleLogo />
-                {t("Continue with Google")}
-              </Button>
-              <Button type="submit" className="auth-submit">
-                {t(screen === "signup" ? "Create account" : "Log in")}
-              </Button>
-              <p className="local-note">
-                {t("Local preview · no account is created")}
-              </p>
-            </form>
-          </section>
-        )}
-        {["name", "focus", "routine"].includes(screen) && (
-          <section className={`onboarding onboarding-${screen}`}>
-            <Flower
-              name={
-                screen === "name"
-                  ? "lotus-bud-stem"
-                  : screen === "focus"
-                    ? "lotus-bloom-stem"
-                    : "lotus-leaf-stem"
-              }
-              className="onboard-flower"
-            />
-            <p className="step">
-              {t("Step {n} of 3", {
-                n: screen === "name" ? 1 : screen === "focus" ? 2 : 3,
-              })}
-            </p>
-            <h1>
-              {lines(
-                t(
-                  screen === "name"
-                    ? "What do you want to\nbe called?"
-                    : screen === "focus"
-                      ? "What would you like\nto focus on?"
-                      : "Let’s build your first\nroutine!",
-                ),
-              )}
-            </h1>
-            {screen === "name" ? (
-              <form
-                className="name-form"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  go("focus");
-                }}
-              >
-                <div className="nickname-picker">
-                  <div className="nickname-field">
-                    <input
-                      aria-label={t("Nick name")}
-                      aria-describedby="nickname-emoji-preview"
-                      placeholder={t("Nick name")}
-                      value={nickname}
-                      onChange={(e) => setNickname(e.target.value)}
-                      maxLength={30}
-                      required
-                    />
-                    <button
-                      type="button"
-                      className="emoji-trigger"
-                      aria-label={t("Choose profile emoji")}
-                      aria-expanded={emojiPickerOpen}
-                      onClick={() => setEmojiPickerOpen((open) => !open)}
-                    >
-                      {nicknameEmoji || <Smile size={19} strokeWidth={1.7} />}
-                    </button>
-                  </div>
-                  <AnimatePresence>
-                    {emojiPickerOpen && (
-                      <motion.div
-                        className="emoji-picker"
-                        initial={{ opacity: 0, y: -6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -6 }}
-                        role="listbox"
-                        aria-label={t("Profile emoji")}
-                      >
-                        {emojiOptions.map((emoji) => (
-                          <button
-                            key={emoji}
-                            type="button"
-                            role="option"
-                            aria-label={t("Choose {emoji}", { emoji })}
-                            aria-selected={nicknameEmoji === emoji}
-                            className={nicknameEmoji === emoji ? "is-selected" : ""}
-                            onClick={() => {
-                              setNicknameEmoji(emoji);
-                              setEmojiPickerOpen(false);
-                            }}
-                          >
-                            {emoji}
-                          </button>
-                        ))}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                  <p id="nickname-emoji-preview" className="nickname-preview">
-                    {nickname || t("Your nickname")} {nicknameEmoji}
-                  </p>
-                </div>
-                <Button type="submit" className="onboard-continue">
-                  {t("Continue")}
-                </Button>
-              </form>
-            ) : (
-              <>
-                <p className="onboard-subtitle">
-                  {screen === "focus"
-                    ? t("choose as many as you like")
-                    : lines(
-                        t(
-                          "here are some general daily\nactivities for you to accomplish",
-                        ),
-                      )}
-                </p>
-                <div
-                  className={
-                    screen === "focus" ? "focus-options" : "routine-options"
-                  }
-                >
-                  {(screen === "focus" ? focusOptions : routineOptions).map(
-                    (item) => (
-                      <button
-                        key={item}
-                        className="option"
-                        aria-pressed={(screen === "focus"
-                          ? focus
-                          : selected
-                        ).includes(item)}
-                        onClick={() =>
-                          screen === "focus"
-                            ? pick(item, focus, setFocus)
-                            : pick(item, selected, setSelected)
-                        }
-                      >
-                        <span>{t(item)}</span>
-                        <Dot
-                          tick
-                          checked={(screen === "focus"
-                            ? focus
-                            : selected
-                          ).includes(item)}
-                        />
-                      </button>
-                    ),
-                  )}
-                </div>
-                <Button
-                  className="onboard-continue"
-                  onClick={() => {
-                    if (screen === "focus") go("routine");
-                    else go("ready");
+                </motion.button>
+                <Flower name="lotus-bud" className="auth-bud" float />
+                <motion.h1 variants={rise}>
+                  {t(screen === "signup" ? "Create an account" : "Log in")}
+                </motion.h1>
+                <motion.form
+                  variants={listStagger}
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    applyAuthIdentity(screen === "signup");
+                    go(screen === "signup" ? "name" : "today");
                   }}
                 >
-                  {t("Continue")}
-                </Button>
-              </>
-            )}
-          </section>
-        )}
-        {screen === "ready" && (
-          <section className="ready">
-            <h1>{t("You’re all set!")}</h1>
-            <p>
-              {lines(
-                t("small steps, big changes\nwe’re excited to have you here"),
-              )}
-            </p>
-            <Flower name="lotus-bouquet" className="ready-bouquet" />
-            <Button
-              onClick={() => {
-                const names: Record<string, string> = {
-                  "Drink Water": "water",
-                  Skincare: "skincare",
-                  Exercise: "exercise",
-                  Journal: "journal",
-                  Read: "read",
-                  "Pray/Meditate": "meditate",
-                  "Sleep before 11 PM": "sleep",
-                };
-                setHabits(
-                  seedHabits
-                    .filter((h) => selected.some((s) => names[s] === h.id))
-                    .map((h) => ({ ...h, done: false })),
-                );
-                setEdited(true);
-                go("today");
-              }}
-            >
-              {t("Go to my day")}
-            </Button>
-          </section>
-        )}
-        {screen === "today" && (
-          <section className="today-home content">
-            <header className="greeting">
-              <h1>
-                {t("Good morning,")}
-                <br />
-                {nickname || "karin"} {nicknameEmoji}
-              </h1>
-              <p>{today ? formatToday(today, locale) : "\u00a0"}</p>
-            </header>
-            <button
-              className="card today-card"
-              onClick={() => {
-                setDetailDate(formatDailyDate(today ?? new Date(), locale));
-                setDetailDateKey(localDateKey(today ?? new Date()));
-                go("daily", localDateKey(today ?? new Date()));
-              }}
-            >
-              <span className="card-label">{t("Today’s progress")}</span>
-              <div className="today-value">
-                <strong>{percent}%</strong>
-                <Flower name="lotus-bloom" />
-              </div>
-              <Bar value={percent} />
-              <div className="streak">
-                <span>{t("Current Streak")}</span>
-                <p>
-                  <strong>
-                    {habits.length === 0 ? 0 : edited ? (habits.some((h) => h.done) ? 1 : 0) : 12}
-                  </strong>{" "}
-                  {t("days")}
-                </p>
-              </div>
-              <span className="see-detail">
-                {t("See detail")} <ChevronRight size={13} />
-              </span>
-            </button>
-            <button
-              className="card today-ritual-preview"
-              onClick={() => go("rituals")}
-            >
-              <div className="today-ritual-heading">
-                <span>
-                  <small>{t("Rituals for today")}</small>
-                  <h2>
-                    {t(
-                      ritualGroups.length === 1
-                        ? "{count} ritual planned"
-                        : "{count} rituals planned",
-                      { count: ritualGroups.length },
-                    )}
-                  </h2>
-                </span>
-                <ChevronRight size={18} aria-hidden="true" />
-              </div>
-              {ritualGroups.length ? (
-                <div className="today-ritual-list">
-                  {ritualGroups.slice(0, 3).map(({ name, activities }) => (
-                    <span className="today-ritual-row" key={name}>
-                      <strong>{t(name)}</strong>
-                      <small>
-                        {activities.filter((habit) => habit.done).length}/
-                        {activities.length}
-                      </small>
-                    </span>
-                  ))}
-                  {ritualGroups.length > 3 && (
-                    <span className="today-ritual-more">
-                      {t("+{count} more", { count: ritualGroups.length - 3 })}
-                    </span>
+                  {screen === "signup" && (
+                    <>
+                      <motion.input
+                        variants={optionItem}
+                        aria-label={t("First name")}
+                        placeholder={t("First name")}
+                        autoComplete="given-name"
+                        required
+                        value={authFirstName}
+                        onChange={(e) => {
+                          setAuthFirstName(e.target.value);
+                          setNickname(e.target.value);
+                        }}
+                      />
+                      <motion.input
+                        variants={optionItem}
+                        aria-label={t("Last name")}
+                        placeholder={t("Last name")}
+                        autoComplete="family-name"
+                        required
+                        value={authLastName}
+                        onChange={(e) => setAuthLastName(e.target.value)}
+                      />
+                    </>
                   )}
-                </div>
-              ) : (
-                <p>{t("No rituals are scheduled for today. Tap to create one.")}</p>
-              )}
-            </button>
-            <motion.button
-              className="add-fab"
-              aria-label={t("Add activity")}
-              onClick={openAddActivity}
-              whileTap={{ scale: 0.92 }}
-            >
-              <Plus size={32} strokeWidth={1.2} />
-            </motion.button>
-          </section>
-        )}
-        {screen === "daily" && (
-          <section className="daily content">
-            <header className="detail-heading">
-              <div>
-                <h1>{detailHeading}</h1>
-                <p>{t("Daily overview")}</p>
-              </div>
-            </header>
-            {dailyHabits.length === 0 ? (
-              <p className="empty-text" role="status">
-                {t(isHistoricalDay ? "No activity recorded for this date." : "Log your activity")}
-              </p>
-            ) : <Ring value={dailyPercent} />}
-            {dailyStandaloneHabits.length > 0 && [true, false].map((done) => (
-              <div className="daily-group" key={String(done)}>
-                <h2>{t(done ? "Completed" : "Missed")}</h2>
-                {dailyStandaloneHabits
-                  .filter((h) => h.done === done)
-                  .map(renderDailyHabit)}
-                {!dailyStandaloneHabits.some(
-                  (h) => h.done === done,
-                ) && (
-                  <p className="empty-text">
-                    {done
-                      ? t("Your first small step is waiting.")
-                      : t("Nothing missed. Lovely work!")}
-                  </p>
+                  <motion.input
+                    variants={optionItem}
+                    aria-label={t("Email")}
+                    placeholder={t("Email")}
+                    type="email"
+                    autoComplete="email"
+                    required
+                    value={authEmail}
+                    onChange={(e) => setAuthEmail(e.target.value)}
+                  />
+                  <motion.input
+                    variants={optionItem}
+                    aria-label={t("Password")}
+                    placeholder={t("Password")}
+                    type="password"
+                    autoComplete={
+                      screen === "signup" ? "new-password" : "current-password"
+                    }
+                    minLength={6}
+                    required
+                  />
+                  <motion.div className="divider" variants={optionItem}>
+                    <span />
+                    {t("Or")}
+                    <span />
+                  </motion.div>
+                  <Button className="google" onClick={() => setModal("google")}>
+                    <GoogleLogo />
+                    {t("Continue with Google")}
+                  </Button>
+                  <Button type="submit" className="auth-submit">
+                    {t(screen === "signup" ? "Create account" : "Log in")}
+                  </Button>
+                  <motion.p className="local-note" variants={optionItem}>
+                    {t("Local preview · no account is created")}
+                  </motion.p>
+                </motion.form>
+              </motion.section>
+            )}
+            {["name", "focus", "routine"].includes(screen) && (
+              <motion.section
+                key={screen}
+                className={`onboarding onboarding-${screen}`}
+                variants={screenAnim}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+              >
+                <Flower
+                  name={
+                    screen === "name"
+                      ? "lotus-bud-stem"
+                      : screen === "focus"
+                        ? "lotus-bloom-stem"
+                        : "lotus-leaf-stem"
+                  }
+                  className="onboard-flower"
+                  float
+                />
+                <motion.p className="step" variants={rise}>
+                  {t("Step {n} of 3", {
+                    n: screen === "name" ? 1 : screen === "focus" ? 2 : 3,
+                  })}
+                </motion.p>
+                <motion.h1 variants={rise}>
+                  {lines(
+                    t(
+                      screen === "name"
+                        ? "What do you want to\nbe called?"
+                        : screen === "focus"
+                          ? "What would you like\nto focus on?"
+                          : "Let’s build your first\nroutine!",
+                    ),
+                  )}
+                </motion.h1>
+                {screen === "name" ? (
+                  <motion.form
+                    className="name-form"
+                    variants={listStagger}
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      go("focus");
+                    }}
+                  >
+                    <motion.div
+                      className="nickname-picker"
+                      variants={optionItem}
+                    >
+                      <div className="nickname-field">
+                        <input
+                          aria-label={t("Nick name")}
+                          aria-describedby="nickname-emoji-preview"
+                          placeholder={t("Nick name")}
+                          value={nickname}
+                          onChange={(e) => setNickname(e.target.value)}
+                          maxLength={30}
+                          required
+                        />
+                        <motion.button
+                          type="button"
+                          className="emoji-trigger"
+                          aria-label={t("Choose profile emoji")}
+                          aria-expanded={emojiPickerOpen}
+                          whileHover={{ scale: 1.08, transition: softSpring }}
+                          whileTap={{ scale: 0.9, transition: tapSpring }}
+                          onClick={() => setEmojiPickerOpen((open) => !open)}
+                        >
+                          <AnimatePresence mode="wait" initial={false}>
+                            <motion.span
+                              key={nicknameEmoji || "placeholder"}
+                              initial={{ opacity: 0, scale: 0.5, y: 4 }}
+                              animate={{ opacity: 1, scale: 1, y: 0 }}
+                              exit={{ opacity: 0, scale: 0.5, y: -4 }}
+                              transition={popSpring}
+                              className="emoji-trigger-face"
+                            >
+                              {nicknameEmoji || (
+                                <Smile size={19} strokeWidth={1.7} />
+                              )}
+                            </motion.span>
+                          </AnimatePresence>
+                        </motion.button>
+                      </div>
+                      <AnimatePresence>
+                        {emojiPickerOpen && (
+                          <motion.div
+                            className="emoji-picker"
+                            variants={emojiPicker}
+                            initial="initial"
+                            animate="animate"
+                            exit="exit"
+                            role="listbox"
+                            aria-label={t("Profile emoji")}
+                          >
+                            {emojiOptions.map((emoji) => (
+                              <motion.button
+                                key={emoji}
+                                type="button"
+                                role="option"
+                                aria-label={t("Choose {emoji}", { emoji })}
+                                aria-selected={nicknameEmoji === emoji}
+                                className={
+                                  nicknameEmoji === emoji ? "is-selected" : ""
+                                }
+                                variants={ddOption}
+                                whileHover={{
+                                  scale: 1.22,
+                                  transition: softSpring,
+                                }}
+                                whileTap={{
+                                  scale: 0.88,
+                                  transition: tapSpring,
+                                }}
+                                onClick={() => {
+                                  setNicknameEmoji(emoji);
+                                  setEmojiPickerOpen(false);
+                                }}
+                              >
+                                {emoji}
+                              </motion.button>
+                            ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                      <p
+                        id="nickname-emoji-preview"
+                        className="nickname-preview"
+                      >
+                        {nickname || t("Your nickname")} {nicknameEmoji}
+                      </p>
+                    </motion.div>
+                    <Button type="submit" className="onboard-continue">
+                      {t("Continue")}
+                    </Button>
+                  </motion.form>
+                ) : (
+                  <>
+                    <motion.p className="onboard-subtitle" variants={rise}>
+                      {screen === "focus"
+                        ? t("choose as many as you like")
+                        : lines(
+                            t(
+                              "here are some general daily\nactivities for you to accomplish",
+                            ),
+                          )}
+                    </motion.p>
+                    <motion.div
+                      variants={listStagger}
+                      className={
+                        screen === "focus" ? "focus-options" : "routine-options"
+                      }
+                    >
+                      {(screen === "focus" ? focusOptions : routineOptions).map(
+                        (item) => (
+                          <motion.button
+                            key={item}
+                            className="option"
+                            variants={optionItem}
+                            whileHover={{ y: -2, transition: softSpring }}
+                            whileTap={{ scale: 0.975, transition: tapSpring }}
+                            aria-pressed={(screen === "focus"
+                              ? focus
+                              : selected
+                            ).includes(item)}
+                            onClick={() =>
+                              screen === "focus"
+                                ? pick(item, focus, setFocus)
+                                : pick(item, selected, setSelected)
+                            }
+                          >
+                            <span>{t(item)}</span>
+                            <Dot
+                              tick
+                              checked={(screen === "focus"
+                                ? focus
+                                : selected
+                              ).includes(item)}
+                            />
+                          </motion.button>
+                        ),
+                      )}
+                    </motion.div>
+                    <Button
+                      className="onboard-continue"
+                      onClick={() => {
+                        if (screen === "focus") go("routine");
+                        else go("ready");
+                      }}
+                    >
+                      {t("Continue")}
+                    </Button>
+                  </>
                 )}
-              </div>
-            ))}
-            <section className="daily-group daily-rituals" aria-labelledby="daily-rituals-heading">
-              <h2 id="daily-rituals-heading">{t("Rituals")}</h2>
-              {dailyRitualGroups.length === 0 ? (
-                <p className="empty-text">{t("No rituals are scheduled for this date.")}</p>
-              ) : dailyRitualGroups.map(({ name, activities }) => (
-                <article className="card daily-ritual-card" key={name}>
-                  <h3>{t(name)}</h3>
-                  <dl className="daily-ritual-schedule">
-                    <div>
-                      <dt>{t("Frequency")}</dt>
-                      <dd>{t(activities[0].frequency)}</dd>
-                    </div>
-                    <div>
-                      <dt>{t("Time Range")}</dt>
-                      <dd>{t(activities[0].time)}</dd>
-                    </div>
-                  </dl>
-                  <p className="daily-ritual-completion">
-                    {t("{done}/{total} Completed", {
-                      done: activities.filter((habit) => habit.done).length,
-                      total: activities.length,
-                    })}
-                  </p>
-                  {activities.map(renderDailyHabit)}
-                </article>
-              ))}
-            </section>
-            {!isHistoricalDay && dailyHabits.length > 0 && <Button
-              className="pink-button edit-progress"
-              onClick={() => {
-                setHabits((items) => {
-                  const updates = new Map(
-                    dailyHabits.map((habit) => [habit.id, habit]),
-                  );
-                  return items.map((habit) => updates.get(habit.id) || habit);
-                });
-                setEdited(true);
-                if (
-                  dailyHabits.length > 0 &&
-                  dailyHabits.every((habit) => habit.done)
-                )
-                  setModal("done");
-                else setToast(t("Today’s progress has been saved."));
-              }}
-            >
-              {t("Save")}
-            </Button>}
-          </section>
-        )}
-        {screen === "progress" && progressView === "report" && (
-          <section className="progress-page content">
-            <div className="progress-tabs" role="tablist" aria-label={t("Progress type")}>
-              {(["habits", "rituals"] as const).map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  role="tab"
-                  aria-selected={progressTab === tab}
-                  className={progressTab === tab ? "is-active" : ""}
-                  onClick={() => openProgressTab(tab)}
+              </motion.section>
+            )}
+            {screen === "ready" && (
+              <motion.section
+                key={"ready"}
+                className="ready"
+                variants={screenAnim}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+              >
+                <motion.h1 variants={rise}>{t("You’re all set!")}</motion.h1>
+                <motion.p variants={rise}>
+                  {lines(
+                    t(
+                      "small steps, big changes\nwe’re excited to have you here",
+                    ),
+                  )}
+                </motion.p>
+                <Flower
+                  name="lotus-bouquet"
+                  className="ready-bouquet"
+                  float
+                  delay={0.2}
+                />
+                <Button
+                  onClick={() => {
+                    const names: Record<string, string> = {
+                      "Drink Water": "water",
+                      Skincare: "skincare",
+                      Exercise: "exercise",
+                      Journal: "journal",
+                      Read: "read",
+                      "Pray/Meditate": "meditate",
+                      "Sleep before 11 PM": "sleep",
+                    };
+                    setHabits(
+                      seedHabits
+                        .filter((h) => selected.some((s) => names[s] === h.id))
+                        .map((h) => ({ ...h, done: false })),
+                    );
+                    setEdited(true);
+                    go("today");
+                  }}
                 >
-                  {t(tab === "habits" ? "Habits" : "Rituals")}
-                </button>
-              ))}
-            </div>
-            <div className="progress-report-heading">
-              <div className="progress-range">
-                <h1 className="progress-month">{progressRangeTitle}</h1>
-                <span className="progress-range-sub">{progressRangeSub}</span>
-              </div>
-              <Dropdown
-                label={t("Progress period")}
-                chevron
-                menuAlign="end"
-                value={progressPeriod}
-                options={periodOptions}
-                onChange={(next) => openProgressReport(next as ProgressPeriod)}
-              />
-            </div>
-            {progressTab === "habits" ? (
-              <>
-                <div className="stats-grid">
-                  <article className="card overall">
-                    <span>{t("Overall completion")}</span>
-                    <strong>{progressReport.overall}%</strong>
-                    <small>{t(progressReport.periodLabel)}</small>
-                    <Flower name="lotus-blossoms" />
-                  </article>
-                  <article className="card mini-stat">
+                  {t("Go to my day")}
+                </Button>
+              </motion.section>
+            )}
+            {screen === "today" && (
+              <motion.section
+                key={"today"}
+                className="today-home content"
+                variants={screenAnim}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+              >
+                <motion.header className="greeting" variants={rise}>
+                  <h1>
+                    {t("Good morning,")}
+                    <br />
+                    {nickname || "karin"} {nicknameEmoji}
+                  </h1>
+                  <p>{today ? formatToday(today, locale) : "\u00a0"}</p>
+                </motion.header>
+                <motion.button
+                  className="card today-card"
+                  variants={rise}
+                  whileHover={cardHover}
+                  whileTap={cardTap}
+                  onClick={() => {
+                    setDetailDate(formatDailyDate(today ?? new Date(), locale));
+                    setDetailDateKey(localDateKey(today ?? new Date()));
+                    go("daily", localDateKey(today ?? new Date()));
+                  }}
+                >
+                  <span className="card-label">{t("Today’s progress")}</span>
+                  <div className="today-value">
+                    <strong>
+                      <Counter value={percent} />%
+                    </strong>
+                    <Flower name="lotus-bloom" float delay={0.2} />
+                  </div>
+                  <Bar value={percent} />
+                  <div className="streak">
                     <span>{t("Current Streak")}</span>
                     <p>
                       <strong>
-                        {progressReport.currentStreak}
+                        <Counter
+                          value={
+                            habits.length === 0
+                              ? 0
+                              : edited
+                                ? habits.some((h) => h.done)
+                                  ? 1
+                                  : 0
+                                : 12
+                          }
+                        />
                       </strong>{" "}
                       {t("days")}
                     </p>
-                  </article>
-                  <article className="card mini-stat">
-                    <span>{t("Longest Streak")}</span>
+                  </div>
+                  <motion.span
+                    className="see-detail"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.6, ease: easing, delay: 0.5 }}
+                  >
+                    {t("See detail")} <ChevronRight size={13} />
+                  </motion.span>
+                </motion.button>
+                <motion.button
+                  className="card today-ritual-preview"
+                  variants={rise}
+                  whileHover={cardHover}
+                  whileTap={cardTap}
+                  onClick={() => go("rituals")}
+                >
+                  <div className="today-ritual-heading">
+                    <span>
+                      <small>{t("Rituals for today")}</small>
+                      <h2>
+                        {t(
+                          ritualGroups.length === 1
+                            ? "{count} ritual planned"
+                            : "{count} rituals planned",
+                          { count: ritualGroups.length },
+                        )}
+                      </h2>
+                    </span>
+                    <ChevronRight size={18} aria-hidden="true" />
+                  </div>
+                  {ritualGroups.length ? (
+                    <motion.div
+                      className="today-ritual-list"
+                      variants={listStagger}
+                    >
+                      {ritualGroups.slice(0, 3).map(({ name, activities }) => (
+                        <motion.span
+                          className="today-ritual-row"
+                          key={name}
+                          variants={optionItem}
+                        >
+                          <strong>{t(name)}</strong>
+                          <small>
+                            {activities.filter((habit) => habit.done).length}/
+                            {activities.length}
+                          </small>
+                        </motion.span>
+                      ))}
+                      {ritualGroups.length > 3 && (
+                        <motion.span
+                          className="today-ritual-more"
+                          variants={optionItem}
+                        >
+                          {t("+{count} more", {
+                            count: ritualGroups.length - 3,
+                          })}
+                        </motion.span>
+                      )}
+                    </motion.div>
+                  ) : (
                     <p>
-                      <strong>
-                        {progressReport.longestStreak}
-                      </strong>{" "}
-                      {t("days")}
-                    </p>
-                  </article>
-                </div>
-                {[
-                  {
-                    title: "Most consistent",
-                    name: "Skincare",
-                    value: progressReport.most,
-                    icon: (
-                      <Sparkles
-                        aria-hidden="true"
-                        size={17}
-                        strokeWidth={1.8}
-                      />
-                    ),
-                  },
-                  {
-                    title: "Least consistent",
-                    name: "Journaling",
-                    value: progressReport.least,
-                    icon: (
-                      <BookOpen
-                        aria-hidden="true"
-                        size={17}
-                        strokeWidth={1.8}
-                      />
-                    ),
-                  },
-                ].map((s) => (
-                  <article className="card consistency" key={s.title}>
-                    <h2>{t(s.title)}</h2>
-                    <div>
-                      <span className="habit-icon">{s.icon}</span>
-                      <p>
-                        {t(s.name)}
-                        <small>{s.value}%</small>
-                      </p>
-                      <span className="percentage-bubble">{s.value}%</span>
-                    </div>
-                  </article>
-                ))}
-                <div className="card insight">
-                  <p>
-                    {lines(
-                      topCategory
-                        ? t(
-                            "You’re most consistent with\nyour {category} habits.",
-                            {
-                              category: t(topCategory.category).toLowerCase(),
-                            },
-                          )
-                        : t("Your habits are still finding\ntheir rhythm."),
-                    )}
-                  </p>
-                  <Flower name="lotus-blue-stem" />
-                </div>
-              </>
-            ) : (
-              <div className="ritual-progress-grid">
-                {ritualSummaries.length === 0 && (
-                  <article className="card ritual-summary-empty">
-                    <p>
-                      {t("Create a ritual to see how its rhythm settles over time.")}
-                    </p>
-                  </article>
-                )}
-                {ritualSummaries.map((summary) => (
-                  <article className="card ritual-summary-card" key={summary.title}>
-                    <div>
-                      <h2>{t(summary.title)}</h2>
-                      <strong>{summary.value}%</strong>
-                    </div>
-                    <div className="ritual-summary-meter">
-                      <span>{t(progressReport.periodLabel)}</span>
-                      <p>
-                        <i aria-hidden="true" />
-                        {summary.days}
-                      </p>
-                      <Bar value={summary.value} />
-                    </div>
-                  </article>
-                ))}
-                {ritualSummaries.length > 0 && (
-                  <article className="card ritual-consistency-card">
-                    <div className="ritual-consistency-heading">
-                      <h2>{t("Rituals consistency")}</h2>
-                      <span>{t("Trend")}</span>
-                    </div>
-                    <div className="ritual-consistency-values">
-                      <p>
-                        <small>{t("Average completion")}</small>
-                        <strong>{progressReport.average}%</strong>
-                      </p>
-                      <p>
-                        <small>{t(progressReport.bestLabel)}</small>
-                        <strong>{progressReport.best}%</strong>
-                      </p>
-                    </div>
-                    <p className="ritual-consistency-copy">
                       {t(
-                        "You’re sticking to your rituals more often over time. Keep the rhythm going.",
+                        "No rituals are scheduled for today. Tap to create one.",
                       )}
                     </p>
-                  </article>
-                )}
-              </div>
+                  )}
+                </motion.button>
+              </motion.section>
             )}
-          </section>
-        )}
-        {(screen === "calendar" ||
-          (screen === "progress" && progressView === "calendar")) && (
-          <section
-            className={`${
-              screen === "progress" ? "progress-calendar-page" : "calendar-page"
-            } content`}
-          >
-            <header className="screen-title progress-calendar-heading">
-              <h1>{t(screen === "progress" ? "Progress" : "Calendar")}</h1>
-              {screen === "progress" && (
-                <div className="progress-period-picker">
+            {screen === "daily" && (
+              <motion.section
+                key={"daily"}
+                className="daily content"
+                variants={screenAnim}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+              >
+                <motion.header className="detail-heading" variants={rise}>
+                  <div>
+                    <h1>{detailHeading}</h1>
+                    <p>{t("Daily overview")}</p>
+                  </div>
+                </motion.header>
+                {dailyHabits.length === 0 ? (
+                  <motion.p
+                    className="empty-text"
+                    role="status"
+                    variants={rise}
+                  >
+                    {t(
+                      isHistoricalDay
+                        ? "No activity recorded for this date."
+                        : "Log your activity",
+                    )}
+                  </motion.p>
+                ) : (
+                  <Ring value={dailyPercent} />
+                )}
+                {dailyStandaloneHabits.length > 0 &&
+                  [true, false].map((done) => (
+                    <motion.div
+                      className="daily-group"
+                      key={String(done)}
+                      layout
+                      variants={rise}
+                      transition={softSpring}
+                    >
+                      <motion.h2 layout="position">
+                        {t(done ? "Completed" : "Missed")}
+                      </motion.h2>
+                      <AnimatePresence initial={false} mode="popLayout">
+                        {dailyStandaloneHabits
+                          .filter((h) => h.done === done)
+                          .map(renderDailyHabit)}
+                      </AnimatePresence>
+                      {!dailyStandaloneHabits.some((h) => h.done === done) && (
+                        <motion.p
+                          className="empty-text"
+                          layout="position"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ duration: 0.4, ease: easing }}
+                        >
+                          {done
+                            ? t("Your first small step is waiting.")
+                            : t("Nothing missed. Lovely work!")}
+                        </motion.p>
+                      )}
+                    </motion.div>
+                  ))}
+                <motion.section
+                  className="daily-group daily-rituals"
+                  aria-labelledby="daily-rituals-heading"
+                  variants={rise}
+                >
+                  <h2 id="daily-rituals-heading">{t("Rituals")}</h2>
+                  {dailyRitualGroups.length === 0 ? (
+                    <p className="empty-text">
+                      {t("No rituals are scheduled for this date.")}
+                    </p>
+                  ) : (
+                    dailyRitualGroups.map(({ name, activities }) => (
+                      <motion.article
+                        className="card daily-ritual-card"
+                        key={name}
+                        layout
+                        variants={listItem}
+                        transition={softSpring}
+                      >
+                        <h3>{t(name)}</h3>
+                        <dl className="daily-ritual-schedule">
+                          <div>
+                            <dt>{t("Frequency")}</dt>
+                            <dd>{t(activities[0].frequency)}</dd>
+                          </div>
+                          <div>
+                            <dt>{t("Time Range")}</dt>
+                            <dd>{t(activities[0].time)}</dd>
+                          </div>
+                        </dl>
+                        <p className="daily-ritual-completion">
+                          {t("{done}/{total} Completed", {
+                            done: activities.filter((habit) => habit.done)
+                              .length,
+                            total: activities.length,
+                          })}
+                        </p>
+                        {activities.map(renderDailyHabit)}
+                      </motion.article>
+                    ))
+                  )}
+                </motion.section>
+                {!isHistoricalDay && dailyHabits.length > 0 && (
+                  <Button
+                    className="pink-button edit-progress"
+                    onClick={() => {
+                      setHabits((items) => {
+                        const updates = new Map(
+                          dailyHabits.map((habit) => [habit.id, habit]),
+                        );
+                        return items.map(
+                          (habit) => updates.get(habit.id) || habit,
+                        );
+                      });
+                      setEdited(true);
+                      if (
+                        dailyHabits.length > 0 &&
+                        dailyHabits.every((habit) => habit.done)
+                      )
+                        setModal("done");
+                      else setToast(t("Today’s progress has been saved."));
+                    }}
+                  >
+                    {t("Save")}
+                  </Button>
+                )}
+              </motion.section>
+            )}
+            {screen === "progress" && progressView === "report" && (
+              <motion.section
+                key={"progress-report"}
+                className="progress-page content"
+                variants={screenAnim}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+              >
+                <motion.div
+                  className="progress-tabs"
+                  role="tablist"
+                  aria-label={t("Progress type")}
+                  variants={rise}
+                >
+                  {(["habits", "rituals"] as const).map((tab) => (
+                    <button
+                      key={tab}
+                      type="button"
+                      role="tab"
+                      aria-selected={progressTab === tab}
+                      className={progressTab === tab ? "is-active" : ""}
+                      onClick={() => openProgressTab(tab)}
+                    >
+                      {progressTab === tab && (
+                        <motion.span
+                          layoutId="progress-tab-pill"
+                          className="progress-tab-pill"
+                          transition={softSpring}
+                        />
+                      )}
+                      <span className="progress-tab-label">
+                        {t(tab === "habits" ? "Habits" : "Rituals")}
+                      </span>
+                    </button>
+                  ))}
+                </motion.div>
+                <motion.div className="progress-report-heading" variants={rise}>
+                  <div className="progress-range">
+                    <AnimatePresence mode="wait" initial={false}>
+                      <motion.h1
+                        key={progressRangeTitle}
+                        className="progress-month"
+                        variants={swapUp}
+                        initial="initial"
+                        animate="animate"
+                        exit="exit"
+                      >
+                        {progressRangeTitle}
+                      </motion.h1>
+                    </AnimatePresence>
+                    <span className="progress-range-sub">
+                      {progressRangeSub}
+                    </span>
+                  </div>
                   <Dropdown
-                    label={t("View progress by period")}
-                    value=""
-                    options={viewByOptions}
+                    label={t("Progress period")}
+                    chevron
+                    menuAlign="end"
+                    value={progressPeriod}
+                    options={periodOptions}
                     onChange={(next) =>
                       openProgressReport(next as ProgressPeriod)
                     }
                   />
-                  <ChevronDown size={15} aria-hidden="true" />
-                </div>
-              )}
-            </header>
-            <article className="card calendar-card">
-              <div className="month-heading">
-                <button
-                  onClick={() => shiftMonth(-1)}
-                  aria-label={t("Previous month")}
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <h2>
-                  {new Date(year, month, 1).toLocaleDateString(locale, {
-                    month: "long",
-                    year: "numeric",
-                  })}
-                </h2>
-                <button
-                  onClick={() => shiftMonth(1)}
-                  aria-label={t("Next month")}
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-              <div className="calendar-weekdays">
-                {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map(
-                  (day) => (
-                    <span key={day}>{t(day)}</span>
-                  ),
-                )}
-              </div>
-              <div className="calendar-days">
-                {Array.from(
-                  { length: new Date(year, month, 1).getDay() },
-                  (_, i) => (
-                    <span key={`blank-${i}`} />
-                  ),
-                )}
-                {Array.from(
-                  { length: new Date(year, month + 1, 0).getDate() },
-                  (_, i) => (
-                    <button
-                      key={i}
-                      className={
-                        detailDateKey &&
-                        localDateKey(new Date(year, month, i + 1)) ===
-                          detailDateKey
-                          ? "highlight"
-                          : ""
-                      }
-                      onClick={() => {
-                        const selectedDate = new Date(year, month, i + 1);
-                        setDetailDate(
-                          selectedDate.toLocaleDateString(
-                            locale,
-                            {
-                              weekday: "long",
-                              month: "short",
-                              day: "numeric",
-                            },
-                          ),
-                        );
-                        setDetailDateKey(localDateKey(selectedDate));
-                        go("daily", localDateKey(selectedDate));
-                      }}
-                      aria-label={`View ${new Date(year, month, i + 1).toLocaleDateString()}`}
-                    >
-                      {i + 1}
-                    </button>
-                  ),
-                )}
-              </div>
-            </article>
-            <article className="card month-progress">
-              <h2>
-                {t("{month} progress", {
-                  month: new Date(year, month, 1).toLocaleDateString(locale, {
-                    month: "long",
-                  }),
-                })}
-              </h2>
-              <strong>{percent}%</strong>
-              <Bar value={percent} />
-            </article>
-          </section>
-        )}
-        {screen === "rituals" && (
-          <section className="rituals content">
-            <h1>{t("Rituals")}</h1>
-            {ritualGroups.length === 0 && (
-              <div className="rituals-empty">
-                <p>{t("Create your first ritual")}</p>
-              </div>
-            )}
-            {ritualGroups.map(({ name, activities }) => (
-              <article className="card routine-card" key={name}>
-                <button
-                  className="routine-card-heading"
-                  onClick={() => openRitualEditor(name)}
-                  aria-label={t("Edit {name} ritual", { name })}
-                >
-                  <h2>{t(name)}</h2>
-                  <p>
-                    {t("{done}/{total} Completed", {
-                      done: activities.filter((habit) => habit.done).length,
-                      total: activities.length,
-                    })}
-                  </p>
-                </button>
-                <div className="routine-activities">
-                  {activities.map((h) => (
-                      <button
-                        key={h.id}
-                        className="routine-activity"
-                        aria-pressed={h.done}
-                        onClick={() => toggle(h.id)}
+                </motion.div>
+                {progressTab === "habits" ? (
+                  <>
+                    <motion.div className="stats-grid" variants={listStagger}>
+                      <motion.article
+                        className="card overall"
+                        variants={listItem}
+                        whileHover={cardHover}
                       >
-                        <span>
-                          {t(
-                            h.id === "water"
-                              ? "Drink Water"
-                              : h.id === "exercise"
-                                ? "Exercise"
-                                : h.id === "read"
-                                  ? "Read"
-                                  : h.name,
-                          )}
-                        </span>
-                        <Dot checked={h.done} />
-                      </button>
+                        <span>{t("Overall completion")}</span>
+                        <strong>
+                          <Counter value={progressReport.overall} />%
+                        </strong>
+                        <small>{t(progressReport.periodLabel)}</small>
+                        <Flower name="lotus-blossoms" float delay={0.3} />
+                      </motion.article>
+                      <motion.article
+                        className="card mini-stat"
+                        variants={listItem}
+                        whileHover={cardHover}
+                      >
+                        <span>{t("Current Streak")}</span>
+                        <p>
+                          <strong>
+                            <Counter value={progressReport.currentStreak} />
+                          </strong>{" "}
+                          {t("days")}
+                        </p>
+                      </motion.article>
+                      <motion.article
+                        className="card mini-stat"
+                        variants={listItem}
+                        whileHover={cardHover}
+                      >
+                        <span>{t("Longest Streak")}</span>
+                        <p>
+                          <strong>
+                            <Counter value={progressReport.longestStreak} />
+                          </strong>{" "}
+                          {t("days")}
+                        </p>
+                      </motion.article>
+                    </motion.div>
+                    {consistencyCards.map((s) => (
+                      <motion.article
+                        className="card consistency"
+                        key={s.title}
+                        variants={listItem}
+                        whileHover={cardHover}
+                      >
+                        <h2>{t(s.title)}</h2>
+                        <div>
+                          <motion.span
+                            className="habit-icon"
+                            initial={{ scale: 0.6, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            transition={{ ...popSpring, delay: 0.15 }}
+                          >
+                            {s.icon}
+                          </motion.span>
+                          <p>
+                            {t(s.name)}
+                            <small>
+                              <Counter value={s.value} />%
+                            </small>
+                          </p>
+                          <motion.span
+                            className="percentage-bubble"
+                            initial={{ scale: 0.7, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            transition={{ ...popSpring, delay: 0.25 }}
+                          >
+                            <Counter value={s.value} />%
+                          </motion.span>
+                        </div>
+                      </motion.article>
                     ))}
-                </div>
-              </article>
-            ))}
-            <motion.button
-              className="add-fab"
-              aria-label={t("Add ritual")}
-              onClick={openAddRitual}
-              whileTap={{ scale: 0.92 }}
-            >
-              <Plus size={32} strokeWidth={1.2} />
-            </motion.button>
-          </section>
-        )}
-        {screen === "profile" && (
-          <section className="profile-page content">
-            <div className="profile-hero">
-              <div className={`profile-avatar ${profilePhoto ? "has-photo" : ""}`}>
-                {profilePhoto ? (
-                  <img src={profilePhoto} alt={t("Profile photo of {name}", { name: username })} />
+                    {topCategory && (
+                      <motion.div
+                        className="card insight"
+                        variants={listItem}
+                        whileHover={cardHover}
+                      >
+                        <p>
+                          {lines(
+                            t(
+                              "You’re most consistent with\nyour {category} habits.",
+                              {
+                                category: t(topCategory.category).toLowerCase(),
+                              },
+                            ),
+                          )}
+                        </p>
+                        <Flower name="lotus-blue-stem" float delay={0.4} />
+                      </motion.div>
+                    )}
+                  </>
                 ) : (
-                  <span aria-hidden="true" />
+                  <motion.div
+                    className="ritual-progress-grid"
+                    variants={listStagger}
+                  >
+                    {ritualSummaries.length === 0 && (
+                      <motion.article
+                        className="card ritual-summary-empty"
+                        variants={listItem}
+                      >
+                        <p>
+                          {t(
+                            "Create a ritual to see how its rhythm settles over time.",
+                          )}
+                        </p>
+                      </motion.article>
+                    )}
+                    {ritualSummaries.map((summary) => (
+                      <motion.article
+                        className="card ritual-summary-card"
+                        key={summary.title}
+                        variants={listItem}
+                        whileHover={cardHover}
+                      >
+                        <div>
+                          <h2>{t(summary.title)}</h2>
+                          <strong>
+                            <Counter value={summary.value} />%
+                          </strong>
+                        </div>
+                        <div className="ritual-summary-meter">
+                          <span>{t(progressReport.periodLabel)}</span>
+                          <p>
+                            <i aria-hidden="true" />
+                            {summary.days}
+                          </p>
+                          <Bar value={summary.value} />
+                        </div>
+                      </motion.article>
+                    ))}
+                    {ritualSummaries.length > 0 && (
+                      <motion.article
+                        className="card ritual-consistency-card"
+                        variants={listItem}
+                        whileHover={cardHover}
+                      >
+                        <div className="ritual-consistency-heading">
+                          <h2>{t("Rituals consistency")}</h2>
+                          <span>{t("Trend")}</span>
+                        </div>
+                        <div className="ritual-consistency-values">
+                          <p>
+                            <small>{t("Average completion")}</small>
+                            <strong>
+                              <Counter value={progressReport.average} />%
+                            </strong>
+                          </p>
+                          <p>
+                            <small>{t(progressReport.bestLabel)}</small>
+                            <strong>
+                              <Counter value={progressReport.best} />%
+                            </strong>
+                          </p>
+                        </div>
+                        <p className="ritual-consistency-copy">
+                          {t(
+                            "You’re sticking to your rituals more often over time. Keep the rhythm going.",
+                          )}
+                        </p>
+                      </motion.article>
+                    )}
+                  </motion.div>
                 )}
-              </div>
-              <button
-                className="profile-change"
-                onClick={() => setModal("photo")}
+              </motion.section>
+            )}
+            {(screen === "calendar" ||
+              (screen === "progress" && progressView === "calendar")) && (
+              <motion.section
+                key={screen === "progress" ? "progress-calendar" : "calendar"}
+                className={`${
+                  screen === "progress"
+                    ? "progress-calendar-page"
+                    : "calendar-page"
+                } content`}
+                variants={screenAnim}
+                initial="initial"
+                animate="animate"
+                exit="exit"
               >
-                {t("Change")}
-              </button>
-            </div>
-            <section className="profile-section" aria-labelledby="personal-information">
-              <h1 id="personal-information">{t("Personal Information")}</h1>
-              <div className="profile-group">
-                <button
-                  className="profile-row"
-                  onClick={() => {
-                    setProfileDraft({ username, email });
-                    setModal("editProfile");
-                  }}
+                <motion.header
+                  className="screen-title progress-calendar-heading"
+                  variants={rise}
                 >
-                  <span>{t("Username")}</span>
-                  <strong>{username}</strong>
-                </button>
-                <button
-                  className="profile-row"
-                  onClick={() => {
-                    setProfileDraft({ username, email });
-                    setModal("editProfile");
-                  }}
-                >
-                  <span>{t("Email")}</span>
-                  <strong>{email}</strong>
-                </button>
-              </div>
-            </section>
-            <section className="profile-section" aria-labelledby="profile-subscription">
-              <h1 id="profile-subscription">{t("Subscription")}</h1>
-              <div className="profile-group">
-                <div className="profile-row profile-info-row">
-                  <span>{t("Plan")}</span>
-                  <strong className={activePlan ? "is-active-plan" : ""}>
-                    {activePlan
-                      ? brand(`Odette Plus · ${t(activePlan.name)}`)
-                      : t("No subscription")}
-                  </strong>
-                </div>
-                {activePlan && renewsOn && (
-                  <div className="profile-row profile-info-row">
-                    <span>{t("Renews on")}</span>
-                    <strong>{renewsOn}</strong>
+                  <h1>{t(screen === "progress" ? "Progress" : "Calendar")}</h1>
+                  {screen === "progress" && (
+                    <div className="progress-period-picker">
+                      <Dropdown
+                        label={t("View progress by period")}
+                        value=""
+                        options={viewByOptions}
+                        onChange={(next) =>
+                          openProgressReport(next as ProgressPeriod)
+                        }
+                      />
+                      <ChevronDown size={15} aria-hidden="true" />
+                    </div>
+                  )}
+                </motion.header>
+                <motion.article className="card calendar-card" variants={rise}>
+                  <div className="month-heading">
+                    <motion.button
+                      onClick={() => shiftMonth(-1)}
+                      aria-label={t("Previous month")}
+                      whileHover={{ x: -2, transition: softSpring }}
+                      whileTap={{ scale: 0.85, transition: tapSpring }}
+                    >
+                      <ChevronLeft size={16} />
+                    </motion.button>
+                    {/* The month name swaps like a page turning, not a text edit. */}
+                    <AnimatePresence mode="wait" initial={false}>
+                      <motion.h2
+                        key={`${year}-${month}`}
+                        variants={swapUp}
+                        initial="initial"
+                        animate="animate"
+                        exit="exit"
+                      >
+                        {new Date(year, month, 1).toLocaleDateString(locale, {
+                          month: "long",
+                          year: "numeric",
+                        })}
+                      </motion.h2>
+                    </AnimatePresence>
+                    <motion.button
+                      onClick={() => shiftMonth(1)}
+                      aria-label={t("Next month")}
+                      whileHover={{ x: 2, transition: softSpring }}
+                      whileTap={{ scale: 0.85, transition: tapSpring }}
+                    >
+                      <ChevronRight size={16} />
+                    </motion.button>
                   </div>
-                )}
-              </div>
-            </section>
-            <Button className="profile-signout" onClick={() => setModal("signOut")}>
-              {t("Sign Out")}
-            </Button>
-          </section>
-        )}
-        {screen === "subscription" && (
-          <section className="subscription-page content">
-            <header className="subscription-hero">
-              <span>{brand("Odette Plus")}</span>
-              <h1>{t("Room to grow, gently")}</h1>
-              <p>
-                {t("Keep every ritual, every memory, and every quiet win with a plan that fits your pace.")}
-              </p>
-            </header>
-
-            <div
-              className={`plan-status ${activePlan ? "is-active" : ""}`}
-              role="status"
-            >
-              <span className="plan-status-flag">
-                {activePlan ? <Check size={13} strokeWidth={3} /> : null}
-                {t(activePlan ? "Active" : "No subscription")}
-              </span>
-              <strong>
-                {activePlan
-                  ? brand(`Odette Plus · ${t(activePlan.name)}`)
-                  : brand(t("You’re on Odette Free"))}
-              </strong>
-              <p>
-                {activePlan
-                  ? t("{price} · renews on {date}", {
-                      price: rupiah(activePlan.price),
-                      date: renewsOn,
-                    })
-                  : brand(
-                      t(
-                        "Choose a plan below to open everything Odette can hold for you.",
+                  <div className="calendar-weekdays">
+                    {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map(
+                      (day) => (
+                        <span key={day}>{t(day)}</span>
                       ),
                     )}
-              </p>
-            </div>
-
-            <section className="subscription-section" aria-labelledby="choose-plan">
-              <h2 id="choose-plan">{t("Choose your plan")}</h2>
-              <div
-                className="plan-list"
-                role="radiogroup"
-                aria-label={t("Subscription plans")}
-              >
-                {plans.map((plan) => {
-                  const saving = planSavings(plan),
-                    selected = planChoice === plan.id,
-                    current = planId === plan.id;
-                  return (
-                    <motion.button
-                      key={plan.id}
-                      type="button"
-                      role="radio"
-                      aria-checked={selected}
-                      className={`plan-card ${selected ? "is-selected" : ""}`}
-                      onClick={() => setPlanChoice(plan.id)}
-                      whileTap={{ scale: 0.985 }}
-                      transition={{ duration: 0.2 }}
+                  </div>
+                  <AnimatePresence mode="wait" initial={false}>
+                    <motion.div
+                      className="calendar-days"
+                      key={`${year}-${month}`}
+                      variants={calendarGrid}
+                      initial="initial"
+                      animate="animate"
+                      exit="exit"
                     >
-                      {plan.highlight && (
-                        <span className="plan-badge">
-                          {current ? t("Current plan") : t(plan.highlight)}
-                        </span>
+                      {Array.from(
+                        { length: new Date(year, month, 1).getDay() },
+                        (_, i) => (
+                          <span key={`blank-${i}`} />
+                        ),
                       )}
-                      <span className="plan-mark" aria-hidden="true">
-                        <Check size={13} strokeWidth={3} />
-                      </span>
-                      <span className="plan-copy">
-                        <strong>{t(plan.name)}</strong>
-                        <small>{t(plan.tagline)}</small>
-                      </span>
-                      <span className="plan-price">
-                        <strong>{rupiah(plan.price)}</strong>
-                        <small>
-                          {plan.months === 1
-                            ? t("per month")
-                            : t("{price} / mo", {
-                                price: rupiah(plan.price / plan.months),
-                              })}
-                        </small>
-                        {saving > 0 && <em>{t("Save {percent}%", { percent: saving })}</em>}
-                      </span>
-                    </motion.button>
-                  );
-                })}
-              </div>
-            </section>
-
-            <section className="subscription-section" aria-labelledby="plan-benefits">
-              <h2 id="plan-benefits">{t("What’s included")}</h2>
-              <ul className="benefit-group">
-                {planBenefits.map(([title, note]) => (
-                  <li key={title}>
-                    <span className="benefit-mark" aria-hidden="true">
-                      <Sparkles size={14} strokeWidth={1.8} />
-                    </span>
-                    <span>
-                      <strong>{t(title)}</strong>
-                      <small>{t(note)}</small>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-
-            <div className="subscription-actions">
-              <Button
-                className="subscription-cta"
-                disabled={planId === planChoice}
-                onClick={() => setModal("subscribe")}
-              >
-                {planId === planChoice
-                  ? t("Your current plan")
-                  : activePlan
-                    ? t("Switch to {name}", { name: t(chosenPlan.name) })
-                    : t("Subscribe · {price}", {
-                        price: rupiah(chosenPlan.price),
-                      })}
-              </Button>
-              {activePlan && (
-                <button
-                  type="button"
-                  className="subscription-cancel"
-                  onClick={() => setModal("cancelPlan")}
+                      {Array.from(
+                        { length: new Date(year, month + 1, 0).getDate() },
+                        (_, i) => (
+                          <motion.button
+                            key={i}
+                            variants={calendarDay}
+                            whileHover={{ scale: 1.14, transition: softSpring }}
+                            whileTap={{ scale: 0.88, transition: tapSpring }}
+                            className={
+                              detailDateKey &&
+                              localDateKey(new Date(year, month, i + 1)) ===
+                                detailDateKey
+                                ? "highlight"
+                                : ""
+                            }
+                            onClick={() => {
+                              const selectedDate = new Date(year, month, i + 1);
+                              setDetailDate(
+                                selectedDate.toLocaleDateString(locale, {
+                                  weekday: "long",
+                                  month: "short",
+                                  day: "numeric",
+                                }),
+                              );
+                              setDetailDateKey(localDateKey(selectedDate));
+                              go("daily", localDateKey(selectedDate));
+                            }}
+                            aria-label={`View ${new Date(year, month, i + 1).toLocaleDateString()}`}
+                          >
+                            {i + 1}
+                          </motion.button>
+                        ),
+                      )}
+                    </motion.div>
+                  </AnimatePresence>
+                </motion.article>
+                <motion.article
+                  className="card month-progress"
+                  variants={rise}
+                  whileHover={cardHover}
                 >
-                  {t("Cancel subscription")}
-                </button>
-              )}
-              <p className="subscription-fine">
-                {t("Preview pricing in IDR. No payment is taken in this prototype. Plans renew automatically and you can stop anytime.")}
-              </p>
-            </div>
-          </section>
-        )}
-        {screen === "help" && (
-          <section className="settings-page content">
-            <header className="settings-hero">
-              <span>{brand("ODETTE")}</span>
-              <h1>{t("Help & Settings")}</h1>
-              <p>{t("Shape a calmer space for your everyday rituals.")}</p>
-            </header>
-
-            <section className="settings-section" aria-labelledby="settings-preferences">
-              <h2 id="settings-preferences">{t("Preferences")}</h2>
-              <div className="settings-group">
-                <div className="settings-row settings-select-row">
-                  <span>
-                    <strong>{t("Language")}</strong>
-                    <small>{t("Set your preferred app language.")}</small>
-                  </span>
-                  <span className="settings-value">
-                    <Dropdown
-                      label={t("Language")}
-                      menuAlign="end"
-                      value={language}
-                      options={languageOptions}
-                      onChange={(next) => {
-                        setLanguage(next as Language);
-                        setToast(
-                          makeTranslator(next as Language)(
-                            "Language changed to {language}.",
-                            { language: makeTranslator(next as Language)(next) },
-                          ),
-                        );
+                  <h2>
+                    {t("{month} progress", {
+                      month: new Date(year, month, 1).toLocaleDateString(
+                        locale,
+                        {
+                          month: "long",
+                        },
+                      ),
+                    })}
+                  </h2>
+                  <strong>
+                    <Counter value={percent} />%
+                  </strong>
+                  <Bar value={percent} />
+                </motion.article>
+              </motion.section>
+            )}
+            {screen === "rituals" && (
+              <motion.section
+                key={"rituals"}
+                className="rituals content"
+                variants={screenAnim}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+              >
+                <motion.h1 variants={rise}>{t("Rituals")}</motion.h1>
+                {ritualGroups.length === 0 && (
+                  <motion.div className="rituals-empty" variants={rise}>
+                    <p>{t("Create your first ritual")}</p>
+                  </motion.div>
+                )}
+                <AnimatePresence initial={false} mode="popLayout">
+                  {ritualGroups.map(({ name, activities }) => (
+                    <motion.article
+                      className="card routine-card"
+                      key={name}
+                      layout
+                      variants={listItem}
+                      transition={softSpring}
+                      whileHover={cardHover}
+                    >
+                      <motion.button
+                        className="routine-card-heading"
+                        onClick={() => openRitualEditor(name)}
+                        aria-label={t("Edit {name} ritual", { name })}
+                        whileTap={{ scale: 0.99, transition: tapSpring }}
+                      >
+                        <h2>{t(name)}</h2>
+                        <p>
+                          {t("{done}/{total} Completed", {
+                            done: activities.filter((habit) => habit.done)
+                              .length,
+                            total: activities.length,
+                          })}
+                        </p>
+                      </motion.button>
+                      <motion.div
+                        className="routine-activities"
+                        variants={listStagger}
+                      >
+                        {activities.map((h) => (
+                          <motion.button
+                            key={h.id}
+                            className="routine-activity"
+                            variants={optionItem}
+                            whileHover={{ x: 3, transition: softSpring }}
+                            whileTap={{ scale: 0.97, transition: tapSpring }}
+                            aria-pressed={h.done}
+                            onClick={() => toggle(h.id)}
+                          >
+                            <span>
+                              {t(
+                                h.id === "water"
+                                  ? "Drink Water"
+                                  : h.id === "exercise"
+                                    ? "Exercise"
+                                    : h.id === "read"
+                                      ? "Read"
+                                      : h.name,
+                              )}
+                            </span>
+                            <Dot checked={h.done} />
+                          </motion.button>
+                        ))}
+                      </motion.div>
+                    </motion.article>
+                  ))}
+                </AnimatePresence>
+              </motion.section>
+            )}
+            {screen === "profile" && (
+              <motion.section
+                key={"profile"}
+                className="profile-page content"
+                variants={screenAnim}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+              >
+                <motion.div className="profile-hero" variants={rise}>
+                  <motion.div
+                    className={`profile-avatar ${profilePhoto ? "has-photo" : ""}`}
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ ...softSpring, delay: 0.1 }}
+                  >
+                    {profilePhoto ? (
+                      <img
+                        src={profilePhoto}
+                        alt={t("Profile photo of {name}", { name: username })}
+                      />
+                    ) : (
+                      <span aria-hidden="true" />
+                    )}
+                  </motion.div>
+                  <motion.button
+                    className="profile-change"
+                    onClick={() => setModal("photo")}
+                    whileHover={{ y: -1, transition: softSpring }}
+                    whileTap={{ scale: 0.94, transition: tapSpring }}
+                  >
+                    {t("Change")}
+                  </motion.button>
+                </motion.div>
+                <motion.section
+                  className="profile-section"
+                  aria-labelledby="personal-information"
+                  variants={rise}
+                >
+                  <h1 id="personal-information">{t("Personal Information")}</h1>
+                  <motion.div className="profile-group" variants={listStagger}>
+                    <motion.button
+                      className="profile-row"
+                      variants={optionItem}
+                      whileHover={rowHover}
+                      whileTap={rowTap}
+                      onClick={() => {
+                        setProfileDraft({ username, email });
+                        setModal("editProfile");
                       }}
-                    />
-                    <ChevronDown size={16} aria-hidden="true" />
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  className="settings-row"
-                  onClick={() => go("profile")}
+                    >
+                      <span>{t("Username")}</span>
+                      <strong>{username}</strong>
+                    </motion.button>
+                    <motion.button
+                      className="profile-row"
+                      variants={optionItem}
+                      whileHover={rowHover}
+                      whileTap={rowTap}
+                      onClick={() => {
+                        setProfileDraft({ username, email });
+                        setModal("editProfile");
+                      }}
+                    >
+                      <span>{t("Email")}</span>
+                      <strong>{email}</strong>
+                    </motion.button>
+                  </motion.div>
+                </motion.section>
+                <motion.section
+                  className="profile-section"
+                  aria-labelledby="profile-subscription"
+                  variants={rise}
                 >
-                  <span>
-                    <strong>{t("Account & profile")}</strong>
-                    <small>{t("Update your name, email, and photo.")}</small>
-                  </span>
-                  <ChevronRight size={18} aria-hidden="true" />
-                </button>
-              </div>
-            </section>
-
-            <section className="settings-section" aria-labelledby="settings-shortcuts">
-              <h2 id="settings-shortcuts">{t("Quick actions")}</h2>
-              <div className="settings-group">
-                <button
-                  type="button"
-                  className="settings-row"
-                  onClick={() => go("rituals")}
+                  <h1 id="profile-subscription">{t("Subscription")}</h1>
+                  <div className="profile-group">
+                    <div className="profile-row profile-info-row">
+                      <span>{t("Plan")}</span>
+                      <strong className={activePlan ? "is-active-plan" : ""}>
+                        {activePlan
+                          ? brand(`Odette Plus · ${t(activePlan.name)}`)
+                          : t("No subscription")}
+                      </strong>
+                    </div>
+                    {activePlan && renewsOn && (
+                      <div className="profile-row profile-info-row">
+                        <span>{t("Renews on")}</span>
+                        <strong>{renewsOn}</strong>
+                      </div>
+                    )}
+                  </div>
+                </motion.section>
+                <Button
+                  className="profile-signout"
+                  onClick={() => setModal("signOut")}
                 >
-                  <span>
-                    <strong>{t("Manage rituals")}</strong>
-                    <small>{t("Create, rename, or remove a ritual.")}</small>
-                  </span>
-                  <ChevronRight size={18} aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  className="settings-row"
-                  onClick={() => go("progress")}
-                >
-                  <span>
-                    <strong>{t("Review progress")}</strong>
-                    <small>{t("See your calendar and completion trends.")}</small>
-                  </span>
-                  <ChevronRight size={18} aria-hidden="true" />
-                </button>
-              </div>
-            </section>
-
-            <section className="settings-section" aria-labelledby="settings-help">
-              <h2 id="settings-help">{t("Help")}</h2>
-              <div className="settings-group settings-faq">
-                <details className="settings-disclosure">
-                  <summary>
-                    <span>
-                      <strong>{t("What are today’s rituals?")}</strong>
-                      <small>{t("See what is planned for the current day.")}</small>
-                    </span>
-                    <ChevronDown size={17} aria-hidden="true" />
-                  </summary>
-                  <p>
-                    {t("Today shows rituals that match the date and their frequency. Morning and Night are time ranges, not required ritual names.")}
-                  </p>
-                </details>
-                <details className="settings-disclosure">
-                  <summary>
-                    <span>
-                      <strong>{t("How do I change a ritual?")}</strong>
-                      <small>{t("Edit its name, activities, or schedule.")}</small>
-                    </span>
-                    <ChevronDown size={17} aria-hidden="true" />
-                  </summary>
-                  <p>
-                    {t("Open Rituals, choose any ritual card, then save your changes or use Delete Ritual at the bottom of the sheet.")}
-                  </p>
-                </details>
-                <details className="settings-disclosure">
-                  <summary>
-                    <span>
-                      <strong>{t("Where is my data saved?")}</strong>
-                      <small>{t("Your preview stays on this device.")}</small>
-                    </span>
-                    <ChevronDown size={17} aria-hidden="true" />
-                  </summary>
-                  <p>
-                    {t("This preview uses local browser storage. Cloud sync and account recovery are not connected yet.")}
-                  </p>
-                </details>
-              </div>
-            </section>
-          </section>
-        )}
-        <AnimatePresence>
-          {menu && (
-            <div className="menu-layer">
-              <motion.button
-                className="scrim"
-                aria-label={t("Close navigation")}
-                tabIndex={-1}
-                onClick={() => setMenu(false)}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-              />
-              <motion.div
-                className="menu-panel"
-                id="main-menu"
-                ref={menuRef}
-                initial={{ clipPath: "inset(0% 0% 100% 100% round 22px)" }}
-                animate={{ clipPath: "inset(0% 0% 0% 0% round 22px)" }}
-                exit={{ clipPath: "inset(0% 0% 100% 100% round 22px)" }}
-                transition={{ duration: 0.55, ease: easing }}
+                  {t("Sign Out")}
+                </Button>
+              </motion.section>
+            )}
+            {screen === "subscription" && (
+              <motion.section
+                key={"subscription"}
+                className="subscription-page content"
+                variants={screenAnim}
+                initial="initial"
+                animate="animate"
+                exit="exit"
               >
-                {(
-                  [
-                    ["Today", "today"],
-                    ["Rituals", "rituals"],
-                    ["Progress", "progress"],
-                    ["Profile", "profile"],
-                    ["Subscription", "subscription"],
-                    ["Help & Settings", "help"],
-                  ] as const
-                ).map(([name, target], i) => (
+                <motion.header className="subscription-hero" variants={rise}>
+                  <span>{brand("Odette Plus")}</span>
+                  <h1>{t("Room to grow, gently")}</h1>
+                  <p>
+                    {t(
+                      "Keep every ritual, every memory, and every quiet win with a plan that fits your pace.",
+                    )}
+                  </p>
+                </motion.header>
+
+                <motion.div
+                  className={`plan-status ${activePlan ? "is-active" : ""}`}
+                  role="status"
+                  variants={rise}
+                >
+                  <span className="plan-status-flag">
+                    {activePlan ? <Check size={13} strokeWidth={3} /> : null}
+                    {t(activePlan ? "Active" : "No subscription")}
+                  </span>
+                  <strong>
+                    {activePlan
+                      ? brand(`Odette Plus · ${t(activePlan.name)}`)
+                      : brand(t("You’re on Odette Free"))}
+                  </strong>
+                  <p>
+                    {activePlan
+                      ? t("{price} · renews on {date}", {
+                          price: rupiah(activePlan.price),
+                          date: renewsOn,
+                        })
+                      : brand(
+                          t(
+                            "Choose a plan below to open everything Odette can hold for you.",
+                          ),
+                        )}
+                  </p>
+                </motion.div>
+
+                <motion.section
+                  className="subscription-section"
+                  aria-labelledby="choose-plan"
+                  variants={rise}
+                >
+                  <h2 id="choose-plan">{t("Choose your plan")}</h2>
+                  <motion.div
+                    className="plan-list"
+                    role="radiogroup"
+                    aria-label={t("Subscription plans")}
+                    variants={listStagger}
+                  >
+                    {plans.map((plan) => {
+                      const saving = planSavings(plan),
+                        selected = planChoice === plan.id,
+                        current = planId === plan.id;
+                      return (
+                        <motion.button
+                          key={plan.id}
+                          type="button"
+                          role="radio"
+                          aria-checked={selected}
+                          className={`plan-card ${selected ? "is-selected" : ""}`}
+                          onClick={() => setPlanChoice(plan.id)}
+                          variants={listItem}
+                          whileHover={cardHover}
+                          whileTap={{ scale: 0.982, transition: tapSpring }}
+                        >
+                          {plan.highlight && (
+                            <motion.span
+                              className="plan-badge"
+                              initial={{ opacity: 0, y: -4, scale: 0.85 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              transition={{ ...popSpring, delay: 0.2 }}
+                            >
+                              {current ? t("Current plan") : t(plan.highlight)}
+                            </motion.span>
+                          )}
+                          <motion.span
+                            className="plan-mark"
+                            aria-hidden="true"
+                            animate={{ scale: selected ? [1, 1.2, 1] : 1 }}
+                            transition={{ duration: 0.42, ease: easing }}
+                          >
+                            <Check size={13} strokeWidth={3} />
+                          </motion.span>
+                          <span className="plan-copy">
+                            <strong>{t(plan.name)}</strong>
+                            <small>{t(plan.tagline)}</small>
+                          </span>
+                          <span className="plan-price">
+                            <strong>{rupiah(plan.price)}</strong>
+                            <small>
+                              {plan.months === 1
+                                ? t("per month")
+                                : t("{price} / mo", {
+                                    price: rupiah(plan.price / plan.months),
+                                  })}
+                            </small>
+                            {saving > 0 && (
+                              <em>
+                                {t("Save {percent}%", { percent: saving })}
+                              </em>
+                            )}
+                          </span>
+                        </motion.button>
+                      );
+                    })}
+                  </motion.div>
+                </motion.section>
+
+                <motion.section
+                  className="subscription-section"
+                  aria-labelledby="plan-benefits"
+                  variants={rise}
+                >
+                  <h2 id="plan-benefits">{t("What’s included")}</h2>
+                  <motion.ul className="benefit-group" variants={listStagger}>
+                    {planBenefits.map(([title, note]) => (
+                      <motion.li key={title} variants={optionItem}>
+                        <span className="benefit-mark" aria-hidden="true">
+                          <Sparkles size={14} strokeWidth={1.8} />
+                        </span>
+                        <span>
+                          <strong>{t(title)}</strong>
+                          <small>{t(note)}</small>
+                        </span>
+                      </motion.li>
+                    ))}
+                  </motion.ul>
+                </motion.section>
+
+                <motion.div className="subscription-actions" variants={rise}>
+                  <Button
+                    className="subscription-cta"
+                    disabled={planId === planChoice}
+                    onClick={() => setModal("subscribe")}
+                  >
+                    {planId === planChoice
+                      ? t("Your current plan")
+                      : activePlan
+                        ? t("Switch to {name}", { name: t(chosenPlan.name) })
+                        : t("Subscribe · {price}", {
+                            price: rupiah(chosenPlan.price),
+                          })}
+                  </Button>
+                  {activePlan && (
+                    <motion.button
+                      type="button"
+                      className="subscription-cancel"
+                      onClick={() => setModal("cancelPlan")}
+                      whileHover={{ y: -1, transition: softSpring }}
+                      whileTap={{ scale: 0.97, transition: tapSpring }}
+                    >
+                      {t("Cancel subscription")}
+                    </motion.button>
+                  )}
+                  <p className="subscription-fine">
+                    {t(
+                      "Preview pricing in IDR. No payment is taken in this prototype. Plans renew automatically and you can stop anytime.",
+                    )}
+                  </p>
+                </motion.div>
+              </motion.section>
+            )}
+            {screen === "help" && (
+              <motion.section
+                key={"help"}
+                className="settings-page content"
+                variants={screenAnim}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+              >
+                <motion.header className="settings-hero" variants={rise}>
+                  <span>{brand("Odette")}</span>
+                  <h1>{t("Help & Settings")}</h1>
+                  <p>{t("Shape a calmer space for your everyday rituals.")}</p>
+                </motion.header>
+
+                <motion.section
+                  className="settings-section"
+                  aria-labelledby="settings-preferences"
+                  variants={rise}
+                >
+                  <h2 id="settings-preferences">{t("Preferences")}</h2>
+                  <motion.div className="settings-group" variants={listStagger}>
+                    <motion.div
+                      className="settings-row settings-select-row"
+                      variants={optionItem}
+                    >
+                      <span>
+                        <strong>{t("Language")}</strong>
+                        <small>{t("Set your preferred app language.")}</small>
+                      </span>
+                      <span className="settings-value">
+                        <Dropdown
+                          label={t("Language")}
+                          menuAlign="end"
+                          value={language}
+                          options={languageOptions}
+                          onChange={(next) => {
+                            setLanguage(next as Language);
+                            setToast(
+                              makeTranslator(next as Language)(
+                                "Language changed to {language}.",
+                                {
+                                  language: makeTranslator(next as Language)(
+                                    next,
+                                  ),
+                                },
+                              ),
+                            );
+                          }}
+                        />
+                        <ChevronDown size={16} aria-hidden="true" />
+                      </span>
+                    </motion.div>
+                    <motion.button
+                      type="button"
+                      className="settings-row"
+                      variants={optionItem}
+                      whileHover={rowHover}
+                      whileTap={rowTap}
+                      onClick={() => go("profile")}
+                    >
+                      <span>
+                        <strong>{t("Account & profile")}</strong>
+                        <small>
+                          {t("Update your name, email, and photo.")}
+                        </small>
+                      </span>
+                      <ChevronRight size={18} aria-hidden="true" />
+                    </motion.button>
+                  </motion.div>
+                </motion.section>
+
+                <motion.section
+                  className="settings-section"
+                  aria-labelledby="settings-shortcuts"
+                  variants={rise}
+                >
+                  <h2 id="settings-shortcuts">{t("Quick actions")}</h2>
+                  <motion.div className="settings-group" variants={listStagger}>
+                    <motion.button
+                      type="button"
+                      className="settings-row"
+                      variants={optionItem}
+                      whileHover={rowHover}
+                      whileTap={rowTap}
+                      onClick={() => go("rituals")}
+                    >
+                      <span>
+                        <strong>{t("Manage rituals")}</strong>
+                        <small>
+                          {t("Create, rename, or remove a ritual.")}
+                        </small>
+                      </span>
+                      <ChevronRight size={18} aria-hidden="true" />
+                    </motion.button>
+                    <motion.button
+                      type="button"
+                      className="settings-row"
+                      variants={optionItem}
+                      whileHover={rowHover}
+                      whileTap={rowTap}
+                      onClick={() => go("progress")}
+                    >
+                      <span>
+                        <strong>{t("Review progress")}</strong>
+                        <small>
+                          {t("See your calendar and completion trends.")}
+                        </small>
+                      </span>
+                      <ChevronRight size={18} aria-hidden="true" />
+                    </motion.button>
+                  </motion.div>
+                </motion.section>
+
+                <motion.section
+                  className="settings-section"
+                  aria-labelledby="settings-help"
+                  variants={rise}
+                >
+                  <h2 id="settings-help">{t("Help")}</h2>
+                  <motion.div
+                    className="settings-group settings-faq"
+                    variants={listStagger}
+                  >
+                    <Disclosure
+                      title={t("What are today’s rituals?")}
+                      hint={t("See what is planned for the current day.")}
+                    >
+                      {t(
+                        "Today shows rituals that match the date and their frequency. Morning and Night are time ranges, not required ritual names.",
+                      )}
+                    </Disclosure>
+                    <Disclosure
+                      title={t("How do I change a ritual?")}
+                      hint={t("Edit its name, activities, or schedule.")}
+                    >
+                      {t(
+                        "Open Rituals, choose any ritual card, then save your changes or use Delete Ritual at the bottom of the sheet.",
+                      )}
+                    </Disclosure>
+                    <Disclosure
+                      title={t("Where is my data saved?")}
+                      hint={t("Your preview stays on this device.")}
+                    >
+                      {t(
+                        "This preview uses local browser storage. Cloud sync and account recovery are not connected yet.",
+                      )}
+                    </Disclosure>
+                  </motion.div>
+                </motion.section>
+              </motion.section>
+            )}
+          </AnimatePresence>
+          {/* The FAB lives outside the screens: a screen that animates its own
+            transform or filter would become the containing block for it. */}
+          <AnimatePresence>
+            {(screen === "today" || screen === "rituals") && (
+              <motion.button
+                key="add-fab"
+                className="add-fab"
+                aria-label={t(
+                  screen === "today" ? "Add activity" : "Add ritual",
+                )}
+                onClick={screen === "today" ? openAddActivity : openAddRitual}
+                initial={{ opacity: 0, scale: 0.4, y: 16 }}
+                animate={{ opacity: 1, scale: 1, y: 0, transition: softSpring }}
+                exit={{
+                  opacity: 0,
+                  scale: 0.5,
+                  y: 12,
+                  transition: { duration: 0.2, ease: exitEasing },
+                }}
+                whileHover={{ scale: 1.07, rotate: 90, transition: softSpring }}
+                whileTap={{ scale: 0.9, transition: tapSpring }}
+              >
+                <Plus size={32} strokeWidth={1.2} />
+              </motion.button>
+            )}
+          </AnimatePresence>
+          <AnimatePresence>
+            {menu && (
+              <div className="menu-layer">
+                <motion.button
+                  className="scrim"
+                  aria-label={t("Close navigation")}
+                  tabIndex={-1}
+                  onClick={() => setMenu(false)}
+                  initial={{ opacity: 0 }}
+                  animate={{
+                    opacity: 1,
+                    transition: { duration: 0.36, ease: easing },
+                  }}
+                  exit={{
+                    opacity: 0,
+                    transition: { duration: 0.26, ease: exitEasing },
+                  }}
+                />
+                <motion.div
+                  className="menu-panel"
+                  id="main-menu"
+                  ref={menuRef}
+                  initial={{ clipPath: "inset(0% 0% 100% 100% round 22px)" }}
+                  animate={{ clipPath: "inset(0% 0% 0% 0% round 22px)" }}
+                  exit={{ clipPath: "inset(0% 0% 100% 100% round 22px)" }}
+                  transition={{ duration: 0.55, ease: easing }}
+                  style={{ transformOrigin: "top right" }}
+                >
+                  {(
+                    [
+                      ["Today", "today"],
+                      ["Rituals", "rituals"],
+                      ["Progress", "progress"],
+                      ["Profile", "profile"],
+                      ["Subscription", "subscription"],
+                      ["Help & Settings", "help"],
+                    ] as const
+                  ).map(([name, target], i) => (
                     <motion.button
                       key={name}
-                      initial={{ opacity: 0, y: 12 }}
-                      animate={{ opacity: 1, y: 0 }}
+                      initial={{ opacity: 0, y: 12, filter: "blur(4px)" }}
+                      animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                      exit={{ opacity: 0, y: 6 }}
                       transition={{
-                        delay: 0.12 + i * 0.045,
-                        duration: 0.32,
+                        delay: 0.12 + i * 0.05,
+                        duration: 0.38,
                         ease: easing,
                       }}
+                      whileHover={{ x: 5, transition: softSpring }}
+                      whileTap={{ scale: 0.97, transition: tapSpring }}
                       onClick={() => go(target)}
                     >
                       {t(name)}
                     </motion.button>
                   ))}
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
-        <AnimatePresence>
-          {modal && modal !== "done" && (
-            <Dialog
-              title={t(
-                modal === "addActivity" || modal === "editActivity"
-                  ? "Add activity to your day"
-                  : modal === "addRitual"
-                    ? "Add Ritual"
-                  : modal === "editRitual"
-                    ? "Edit Ritual"
-                    : modal === "photo"
-                      ? "Profile Photo"
-                    : modal === "editProfile"
-                      ? "Edit Personal Information"
-                    : modal === "subscribe"
-                      ? activePlan
-                        ? "Switch Plan"
-                        : "Start Odette Plus"
-                    : modal === "cancelPlan"
-                      ? "Cancel Subscription"
-                    : modal === "signOut"
-                      ? "Sign Out"
-                    : modal === "google"
-                      ? "Continue with Google"
-                      : "",
-              )}
-              onClose={closeModal}
-            >
-              {(modal === "addActivity" || modal === "editActivity") && (
-                <form
-                  className="add-form activity-form"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    const target = ritualOptions.find(
-                      (ritual) => ritual.name === activityRitual,
-                    );
-                    if (
-                      !activityName.trim() ||
-                      !activityCategory ||
-                      (activityRitual && !target)
-                    ) {
-                      setToast(t("Add a name and a category first."));
-                      return;
-                    }
-                    if (modal === "editActivity" && editingActivityId) {
-                      const updateActivity = (items: Habit[]) =>
-                        items.map((habit) =>
-                          habit.id === editingActivityId
-                            ? {
-                                ...habit,
-                                name: activityName.trim(),
-                                ritualName: target?.name || "",
-                                routine: target?.routine || habit.routine,
-                                category: activityCategory,
-                                frequency: target?.frequency || "Today only",
-                                time: target?.time || "Any time",
-                              }
-                            : habit,
-                        );
-                      setHabits(updateActivity);
-                      setDraft(updateActivity);
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
+          <AnimatePresence>
+            {modal && modal !== "done" && (
+              <Dialog
+                title={t(
+                  modal === "addActivity" || modal === "editActivity"
+                    ? "Add activity to your day"
+                    : modal === "addRitual"
+                      ? "Add Ritual"
+                      : modal === "editRitual"
+                        ? "Edit Ritual"
+                        : modal === "photo"
+                          ? "Profile Photo"
+                          : modal === "editProfile"
+                            ? "Edit Personal Information"
+                            : modal === "subscribe"
+                              ? activePlan
+                                ? "Switch Plan"
+                                : "Start Odette Plus"
+                              : modal === "cancelPlan"
+                                ? "Cancel Subscription"
+                                : modal === "signOut"
+                                  ? "Sign Out"
+                                  : modal === "google"
+                                    ? "Continue with Google"
+                                    : "",
+                )}
+                onClose={closeModal}
+              >
+                {(modal === "addActivity" || modal === "editActivity") && (
+                  <motion.form
+                    className="add-form activity-form"
+                    variants={listStagger}
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const target = ritualOptions.find(
+                        (ritual) => ritual.name === activityRitual,
+                      );
+                      if (
+                        !activityName.trim() ||
+                        !activityCategory ||
+                        (activityRitual && !target)
+                      ) {
+                        setToast(t("Add a name and a category first."));
+                        return;
+                      }
+                      if (modal === "editActivity" && editingActivityId) {
+                        const updateActivity = (items: Habit[]) =>
+                          items.map((habit) =>
+                            habit.id === editingActivityId
+                              ? {
+                                  ...habit,
+                                  name: activityName.trim(),
+                                  ritualName: target?.name || "",
+                                  routine: target?.routine || habit.routine,
+                                  category: activityCategory,
+                                  frequency: target?.frequency || "Today only",
+                                  time: target?.time || "Any time",
+                                }
+                              : habit,
+                          );
+                        setHabits(updateActivity);
+                        setDraft(updateActivity);
+                        setEdited(true);
+                        setModal(null);
+                        setToast(t("Activity updated."));
+                        return;
+                      }
+                      setHabits((items) => [
+                        ...items,
+                        {
+                          id: crypto.randomUUID(),
+                          name: activityName.trim(),
+                          ritualName: target?.name || "",
+                          routine: target?.routine || "Morning",
+                          done: false,
+                          category: activityCategory,
+                          frequency: target?.frequency || "Today only",
+                          time: target?.time || "Any time",
+                          scheduledDate: todayKey || localDateKey(new Date()),
+                        },
+                      ]);
                       setEdited(true);
                       setModal(null);
-                      setToast(t("Activity updated."));
-                      return;
-                    }
-                    setHabits((items) => [
-                      ...items,
-                      {
-                        id: crypto.randomUUID(),
-                        name: activityName.trim(),
-                        ritualName: target?.name || "",
-                        routine: target?.routine || "Morning",
-                        done: false,
-                        category: activityCategory,
-                        frequency: target?.frequency || "Today only",
-                        time: target?.time || "Any time",
-                        scheduledDate:
-                          todayKey || localDateKey(new Date()),
-                      },
-                    ]);
-                    setEdited(true);
-                    setModal(null);
-                    setToast(t("Activity added to today."));
-                  }}
-                >
-                  <input
-                    placeholder={t("Activity Name")}
-                    aria-label={t("Activity Name")}
-                    value={activityName}
-                    onChange={(e) => setActivityName(e.target.value)}
-                    required
-                    maxLength={60}
-                  />
-                  <div className="select-field">
-                    <Dropdown
-                      label={t("Category")}
-                      value={activityCategory}
-                      options={activityCategoryOptions}
-                      onChange={setActivityCategory}
+                      setToast(t("Activity added to today."));
+                    }}
+                  >
+                    <motion.input
+                      variants={optionItem}
+                      placeholder={t("Activity Name")}
+                      aria-label={t("Activity Name")}
+                      value={activityName}
+                      onChange={(e) => setActivityName(e.target.value)}
+                      required
+                      maxLength={60}
                     />
-                    <ChevronDown size={16} />
-                  </div>
-                  <div className="select-field">
-                    <Dropdown
-                      label={t("Add to your rituals")}
-                      value={activityRitual}
-                      options={[
-                        {
-                          value: "",
-                          label: "Add to your rituals (optional)",
-                        },
-                        ...ritualOptions.map((ritual) => ({
-                          value: ritual.name,
-                          label: ritual.name,
+                    <motion.div className="select-field" variants={optionItem}>
+                      <Dropdown
+                        label={t("Category")}
+                        value={activityCategory}
+                        options={activityCategoryOptions}
+                        onChange={setActivityCategory}
+                      />
+                      <ChevronDown size={16} />
+                    </motion.div>
+                    <motion.div className="select-field" variants={optionItem}>
+                      <Dropdown
+                        label={t("Add to your rituals")}
+                        value={activityRitual}
+                        options={[
+                          {
+                            value: "",
+                            label: "Add to your rituals (optional)",
+                          },
+                          ...ritualOptions.map((ritual) => ({
+                            value: ritual.name,
+                            label: ritual.name,
+                          })),
+                        ]}
+                        onChange={setActivityRitual}
+                      />
+                      <ChevronDown size={16} />
+                    </motion.div>
+                    <Button type="submit">
+                      {t(modal === "editActivity" ? "Save Changes" : "Add")}
+                    </Button>
+                    {modal === "editActivity" && editingActivityId && (
+                      <motion.button
+                        type="button"
+                        className="delete-ritual"
+                        variants={optionItem}
+                        whileHover={{ y: -1, transition: softSpring }}
+                        whileTap={{ scale: 0.97, transition: tapSpring }}
+                        onClick={() => {
+                          setHabits((items) =>
+                            items.filter(
+                              (habit) => habit.id !== editingActivityId,
+                            ),
+                          );
+                          setDraft((items) =>
+                            items.filter(
+                              (habit) => habit.id !== editingActivityId,
+                            ),
+                          );
+                          setEdited(true);
+                          setModal(null);
+                          setToast(t("Activity deleted."));
+                        }}
+                      >
+                        {t("Delete Activity")}
+                      </motion.button>
+                    )}
+                  </motion.form>
+                )}
+                {modal === "addRitual" && (
+                  <motion.form
+                    className="add-form ritual-form"
+                    variants={listStagger}
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const pending = newActivity.trim();
+                      const activities = pending
+                        ? [
+                            ...ritualActivities,
+                            {
+                              id: crypto.randomUUID(),
+                              name: pending,
+                              ritualName: ritualName.trim(),
+                              routine:
+                                ritualTime === "Night" ? "Night" : "Morning",
+                              done: false,
+                              category: ritualCategory,
+                              frequency: ritualFrequency,
+                              time: ritualTime,
+                            } satisfies Habit,
+                          ]
+                        : ritualActivities;
+                      if (!ritualName.trim()) return;
+                      if (
+                        ritualGroups.some(
+                          (ritual) =>
+                            ritual.name.toLocaleLowerCase() ===
+                            ritualName.trim().toLocaleLowerCase(),
+                        )
+                      ) {
+                        setToast(t("Please choose a unique ritual name."));
+                        return;
+                      }
+                      if (!activities.length) {
+                        setToast(
+                          t("Add at least one activity to this ritual."),
+                        );
+                        return;
+                      }
+                      setHabits((h) => [
+                        ...h,
+                        ...activities.map((activity) => ({
+                          ...activity,
+                          ritualName: ritualName.trim(),
+                          routine: (ritualTime === "Night"
+                            ? "Night"
+                            : "Morning") as Routine,
+                          category: ritualCategory,
+                          frequency: ritualFrequency,
+                          time: ritualTime,
                         })),
-                      ]}
-                      onChange={setActivityRitual}
+                      ]);
+                      setEdited(true);
+                      setModal(null);
+                      setToast(t("Your new ritual has been added."));
+                    }}
+                  >
+                    <motion.input
+                      variants={optionItem}
+                      placeholder={t("Ritual Name")}
+                      aria-label={t("Ritual Name")}
+                      value={ritualName}
+                      onChange={(e) => setRitualName(e.target.value)}
+                      required
+                      maxLength={60}
                     />
-                    <ChevronDown size={16} />
-                  </div>
-                  <Button type="submit">
-                    {t(modal === "editActivity" ? "Save Changes" : "Add")}
-                  </Button>
-                  {modal === "editActivity" && editingActivityId && (
-                    <button
+                    <motion.div
+                      className="form-field-label"
+                      variants={optionItem}
+                    >
+                      {t("Category")}
+                      <div className="select-field">
+                        <Flower2 size={19} />
+                        <Dropdown
+                          label={t("Category")}
+                          value={ritualCategory}
+                          options={ritualCategoryOptions}
+                          onChange={setRitualCategory}
+                        />
+                        <ChevronDown size={16} />
+                      </div>
+                    </motion.div>
+                    <motion.div
+                      className="ritual-select-grid"
+                      variants={optionItem}
+                    >
+                      <div className="form-field-label">
+                        {t("Frequency")}
+                        <div className="select-field">
+                          <Dropdown
+                            label={t("Frequency")}
+                            value={ritualFrequency}
+                            options={frequencyOptions}
+                            onChange={setRitualFrequency}
+                          />
+                          <ChevronDown size={16} />
+                        </div>
+                      </div>
+                      <div className="form-field-label">
+                        {t("Time Range")}
+                        <div className="select-field">
+                          <Dropdown
+                            label={t("Time Range")}
+                            value={ritualTime}
+                            options={timeRangeOptions}
+                            onChange={setRitualTime}
+                          />
+                          <ChevronDown size={16} />
+                        </div>
+                      </div>
+                    </motion.div>
+                    <motion.div
+                      className="activities-editor"
+                      variants={optionItem}
+                    >
+                      <span className="form-field-label">{t("Activity")}</span>
+                      <div className="activity-chips">
+                        <AnimatePresence initial={false} mode="popLayout">
+                          {ritualActivities.map((activity) => (
+                            <motion.button
+                              key={activity.id}
+                              type="button"
+                              className="activity-chip"
+                              layout
+                              variants={chipItem}
+                              initial="initial"
+                              animate="animate"
+                              exit="exit"
+                              whileHover={{ y: -1, transition: softSpring }}
+                              whileTap={{ scale: 0.92, transition: tapSpring }}
+                              onClick={() =>
+                                setRitualActivities((items) =>
+                                  items.filter(
+                                    (item) => item.id !== activity.id,
+                                  ),
+                                )
+                              }
+                            >
+                              {activity.name}
+                              <X size={11} aria-hidden="true" />
+                            </motion.button>
+                          ))}
+                        </AnimatePresence>
+                      </div>
+                      <div className="activity-composer">
+                        <input
+                          placeholder={t("add activities to your ritual")}
+                          aria-label={t("Activity")}
+                          value={newActivity}
+                          onChange={(e) => setNewActivity(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              addDraftActivity();
+                            }
+                          }}
+                          maxLength={60}
+                        />
+                        <motion.button
+                          type="button"
+                          aria-label={t("Add activity")}
+                          whileHover={{ rotate: 90, transition: softSpring }}
+                          whileTap={{ scale: 0.86, transition: tapSpring }}
+                          onClick={addDraftActivity}
+                        >
+                          <Plus size={17} />
+                        </motion.button>
+                      </div>
+                    </motion.div>
+                    <Button type="submit">{t("Add")}</Button>
+                  </motion.form>
+                )}
+                {modal === "editRitual" && (
+                  <motion.form
+                    className="edit-ritual-form"
+                    variants={listStagger}
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (
+                        ritualGroups.some(
+                          (ritual) =>
+                            ritual.name !== editingRitual &&
+                            ritual.name.toLocaleLowerCase() ===
+                              ritualName.trim().toLocaleLowerCase(),
+                        )
+                      ) {
+                        setToast(t("Please choose a unique ritual name."));
+                        return;
+                      }
+                      setHabits((all) => [
+                        ...all.filter(
+                          (habit) => getRitualName(habit) !== editingRitual,
+                        ),
+                        ...ritualActivities.map((activity) => ({
+                          ...activity,
+                          ritualName: ritualName.trim(),
+                          routine: (ritualTime === "Night"
+                            ? "Night"
+                            : "Morning") as Routine,
+                          category: ritualCategory,
+                          frequency: ritualFrequency,
+                          time: ritualTime,
+                        })),
+                      ]);
+                      setEdited(true);
+                      setModal(null);
+                      setToast(t("Your ritual has been updated."));
+                    }}
+                  >
+                    <motion.label
+                      className="form-field-label"
+                      variants={optionItem}
+                    >
+                      {t("Ritual Name")}
+                      <input
+                        value={ritualName}
+                        onChange={(e) => setRitualName(e.target.value)}
+                        maxLength={60}
+                        required
+                      />
+                    </motion.label>
+                    <motion.div
+                      className="form-field-label"
+                      variants={optionItem}
+                    >
+                      {t("Category")}
+                      <div className="select-field">
+                        <Flower2 size={19} />
+                        <Dropdown
+                          label={t("Category")}
+                          value={ritualCategory}
+                          options={editRitualCategoryOptions}
+                          onChange={setRitualCategory}
+                        />
+                        <ChevronDown size={16} />
+                      </div>
+                    </motion.div>
+                    <motion.div
+                      className="ritual-select-grid"
+                      variants={optionItem}
+                    >
+                      <div className="form-field-label">
+                        {t("Frequency")}
+                        <div className="select-field">
+                          <Dropdown
+                            label={t("Frequency")}
+                            value={ritualFrequency}
+                            options={frequencyOptions}
+                            onChange={setRitualFrequency}
+                          />
+                          <ChevronDown size={16} />
+                        </div>
+                      </div>
+                      <div className="form-field-label">
+                        {t("Time Range")}
+                        <div className="select-field">
+                          <Dropdown
+                            label={t("Time Range")}
+                            value={ritualTime}
+                            options={timeRangeOptions}
+                            onChange={setRitualTime}
+                          />
+                          <ChevronDown size={16} />
+                        </div>
+                      </div>
+                    </motion.div>
+                    <motion.div
+                      className="activities-editor"
+                      variants={optionItem}
+                    >
+                      <span className="form-field-label">
+                        {t("Activities")}
+                      </span>
+                      <div className="activity-chips">
+                        <AnimatePresence initial={false} mode="popLayout">
+                          {ritualActivities.map((activity) => (
+                            <motion.button
+                              key={activity.id}
+                              type="button"
+                              className="activity-chip"
+                              layout
+                              variants={chipItem}
+                              initial="initial"
+                              animate="animate"
+                              exit="exit"
+                              whileHover={{ y: -1, transition: softSpring }}
+                              whileTap={{ scale: 0.92, transition: tapSpring }}
+                              onClick={() =>
+                                setRitualActivities((activities) =>
+                                  activities.filter(
+                                    (item) => item.id !== activity.id,
+                                  ),
+                                )
+                              }
+                            >
+                              {t(
+                                activity.id === "water"
+                                  ? "Drink Water"
+                                  : activity.id === "exercise"
+                                    ? "Exercise"
+                                    : activity.id === "read"
+                                      ? "Read"
+                                      : activity.name,
+                              )}
+                              <X size={11} aria-hidden="true" />
+                            </motion.button>
+                          ))}
+                        </AnimatePresence>
+                      </div>
+                      <div className="activity-composer">
+                        <input
+                          value={newActivity}
+                          onChange={(e) => setNewActivity(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              addDraftActivity();
+                            }
+                          }}
+                          placeholder={t("add activities to your ritual")}
+                          aria-label={t("Add an activity")}
+                          maxLength={60}
+                        />
+                        <motion.button
+                          type="button"
+                          aria-label={t("Add activity")}
+                          whileHover={{ rotate: 90, transition: softSpring }}
+                          whileTap={{ scale: 0.86, transition: tapSpring }}
+                          onClick={addDraftActivity}
+                        >
+                          <Plus size={17} />
+                        </motion.button>
+                      </div>
+                    </motion.div>
+                    <Button type="submit">{t("Save Changes")}</Button>
+                    <motion.button
                       type="button"
                       className="delete-ritual"
+                      variants={optionItem}
+                      whileHover={{ y: -1, transition: softSpring }}
+                      whileTap={{ scale: 0.97, transition: tapSpring }}
                       onClick={() => {
-                        setHabits((items) =>
-                          items.filter((habit) => habit.id !== editingActivityId),
-                        );
-                        setDraft((items) =>
-                          items.filter((habit) => habit.id !== editingActivityId),
+                        setHabits((all) =>
+                          all.filter(
+                            (habit) => getRitualName(habit) !== editingRitual,
+                          ),
                         );
                         setEdited(true);
                         setModal(null);
-                        setToast(t("Activity deleted."));
+                        setToast(
+                          t("{name} ritual deleted.", { name: editingRitual }),
+                        );
                       }}
                     >
-                      {t("Delete Activity")}
-                    </button>
-                  )}
-                </form>
-              )}
-              {modal === "addRitual" && (
-                <form
-                  className="add-form ritual-form"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    const pending = newActivity.trim();
-                    const activities = pending
-                      ? [
-                          ...ritualActivities,
-                          {
-                            id: crypto.randomUUID(),
-                            name: pending,
-                            ritualName: ritualName.trim(),
-                            routine:
-                              ritualTime === "Night" ? "Night" : "Morning",
-                            done: false,
-                            category: ritualCategory,
-                            frequency: ritualFrequency,
-                            time: ritualTime,
-                          } satisfies Habit,
-                        ]
-                      : ritualActivities;
-                    if (!ritualName.trim()) return;
-                    if (
-                      ritualGroups.some(
-                        (ritual) =>
-                          ritual.name.toLocaleLowerCase() ===
-                          ritualName.trim().toLocaleLowerCase(),
-                      )
-                    ) {
-                      setToast(t("Please choose a unique ritual name."));
-                      return;
-                    }
-                    if (!activities.length) {
-                      setToast(t("Add at least one activity to this ritual."));
-                      return;
-                    }
-                    setHabits((h) => [
-                      ...h,
-                      ...activities.map((activity) => ({
-                        ...activity,
-                        ritualName: ritualName.trim(),
-                        routine: (ritualTime === "Night"
-                          ? "Night"
-                          : "Morning") as Routine,
-                        category: ritualCategory,
-                        frequency: ritualFrequency,
-                        time: ritualTime,
-                      })),
-                    ]);
-                    setEdited(true);
-                    setModal(null);
-                    setToast(t("Your new ritual has been added."));
-                  }}
-                >
-                  <input
-                    placeholder={t("Ritual Name")}
-                    aria-label={t("Ritual Name")}
-                    value={ritualName}
-                    onChange={(e) => setRitualName(e.target.value)}
-                    required
-                    maxLength={60}
-                  />
-                  <div className="form-field-label">
-                    {t("Category")}
-                    <div className="select-field">
-                      <Flower2 size={19} />
-                      <Dropdown
-                        label={t("Category")}
-                        value={ritualCategory}
-                        options={ritualCategoryOptions}
-                        onChange={setRitualCategory}
-                      />
-                      <ChevronDown size={16} />
-                    </div>
-                  </div>
-                  <div className="ritual-select-grid">
-                    <div className="form-field-label">
-                      {t("Frequency")}
-                      <div className="select-field">
-                        <Dropdown
-                          label={t("Frequency")}
-                          value={ritualFrequency}
-                          options={frequencyOptions}
-                          onChange={setRitualFrequency}
-                        />
-                        <ChevronDown size={16} />
-                      </div>
-                    </div>
-                    <div className="form-field-label">
-                      {t("Time Range")}
-                      <div className="select-field">
-                        <Dropdown
-                          label={t("Time Range")}
-                          value={ritualTime}
-                          options={timeRangeOptions}
-                          onChange={setRitualTime}
-                        />
-                        <ChevronDown size={16} />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="activities-editor">
-                    <span className="form-field-label">{t("Activity")}</span>
-                    <div className="activity-chips">
-                      {ritualActivities.map((activity) => (
-                        <button
-                          key={activity.id}
-                          type="button"
-                          className="activity-chip"
-                          onClick={() =>
-                            setRitualActivities((items) =>
-                              items.filter((item) => item.id !== activity.id),
-                            )
-                          }
-                        >
-                          {activity.name}
-                          <X size={11} aria-hidden="true" />
-                        </button>
-                      ))}
-                    </div>
-                    <div className="activity-composer">
-                      <input
-                        placeholder={t("add activities to your ritual")}
-                        aria-label={t("Activity")}
-                        value={newActivity}
-                        onChange={(e) => setNewActivity(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            addDraftActivity();
-                          }
-                        }}
-                        maxLength={60}
-                      />
-                      <button
+                      {t("Delete Ritual")}
+                    </motion.button>
+                  </motion.form>
+                )}
+                {modal === "photo" && (
+                  <motion.div
+                    className="profile-sheet-actions"
+                    variants={listStagger}
+                  >
+                    {profilePhoto ? (
+                      <motion.button
                         type="button"
-                        aria-label={t("Add activity")}
-                        onClick={addDraftActivity}
+                        className="profile-action danger-action"
+                        variants={optionItem}
+                        whileHover={{ y: -2, transition: softSpring }}
+                        whileTap={{ scale: 0.98, transition: tapSpring }}
+                        onClick={() => {
+                          setProfilePhoto("");
+                          setModal(null);
+                          setToast(t("Profile photo removed."));
+                        }}
                       >
-                        <Plus size={17} />
-                      </button>
-                    </div>
-                  </div>
-                  <Button type="submit">{t("Add")}</Button>
-                </form>
-              )}
-              {modal === "editRitual" && (
-                <form
-                  className="edit-ritual-form"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (
-                      ritualGroups.some(
-                        (ritual) =>
-                          ritual.name !== editingRitual &&
-                          ritual.name.toLocaleLowerCase() ===
-                            ritualName.trim().toLocaleLowerCase(),
-                      )
-                    ) {
-                      setToast(t("Please choose a unique ritual name."));
-                      return;
-                    }
-                    setHabits((all) => [
-                      ...all.filter(
-                        (habit) => getRitualName(habit) !== editingRitual,
-                      ),
-                      ...ritualActivities.map((activity) => ({
-                        ...activity,
-                        ritualName: ritualName.trim(),
-                        routine: (ritualTime === "Night"
-                          ? "Night"
-                          : "Morning") as Routine,
-                        category: ritualCategory,
-                        frequency: ritualFrequency,
-                        time: ritualTime,
-                      })),
-                    ]);
-                    setEdited(true);
-                    setModal(null);
-                    setToast(t("Your ritual has been updated."));
-                  }}
-                >
-                  <label className="form-field-label">
-                    {t("Ritual Name")}
+                        <Trash2 size={19} aria-hidden="true" />
+                        {t("Remove photo")}
+                      </motion.button>
+                    ) : (
+                      <>
+                        <motion.button
+                          type="button"
+                          className="profile-action"
+                          variants={optionItem}
+                          whileHover={{ y: -2, transition: softSpring }}
+                          whileTap={{ scale: 0.98, transition: tapSpring }}
+                          onClick={() => uploadInput.current?.click()}
+                        >
+                          <Upload size={19} aria-hidden="true" />
+                          {t("Upload from device")}
+                        </motion.button>
+                        <motion.button
+                          type="button"
+                          className="profile-action"
+                          variants={optionItem}
+                          whileHover={{ y: -2, transition: softSpring }}
+                          whileTap={{ scale: 0.98, transition: tapSpring }}
+                          onClick={() => cameraInput.current?.click()}
+                        >
+                          <Camera size={19} aria-hidden="true" />
+                          {t("Take photo")}
+                        </motion.button>
+                      </>
+                    )}
                     <input
-                      value={ritualName}
-                      onChange={(e) => setRitualName(e.target.value)}
-                      maxLength={60}
-                      required
+                      ref={uploadInput}
+                      className="visually-hidden"
+                      type="file"
+                      accept="image/*"
+                      onChange={(event) => {
+                        chooseProfilePhoto(event.target.files?.[0]);
+                        event.currentTarget.value = "";
+                      }}
                     />
-                  </label>
-                  <div className="form-field-label">
-                    {t("Category")}
-                    <div className="select-field">
-                      <Flower2 size={19} />
-                      <Dropdown
-                        label={t("Category")}
-                        value={ritualCategory}
-                        options={editRitualCategoryOptions}
-                        onChange={setRitualCategory}
-                      />
-                      <ChevronDown size={16} />
-                    </div>
-                  </div>
-                  <div className="ritual-select-grid">
-                    <div className="form-field-label">
-                      {t("Frequency")}
-                      <div className="select-field">
-                        <Dropdown
-                          label={t("Frequency")}
-                          value={ritualFrequency}
-                          options={frequencyOptions}
-                          onChange={setRitualFrequency}
-                        />
-                        <ChevronDown size={16} />
-                      </div>
-                    </div>
-                    <div className="form-field-label">
-                      {t("Time Range")}
-                      <div className="select-field">
-                        <Dropdown
-                          label={t("Time Range")}
-                          value={ritualTime}
-                          options={timeRangeOptions}
-                          onChange={setRitualTime}
-                        />
-                        <ChevronDown size={16} />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="activities-editor">
-                    <span className="form-field-label">{t("Activities")}</span>
-                    <div className="activity-chips">
-                      {ritualActivities.map((activity) => (
-                        <button
-                          key={activity.id}
-                          type="button"
-                          className="activity-chip"
-                          onClick={() =>
-                            setRitualActivities((activities) =>
-                              activities.filter((item) => item.id !== activity.id),
-                            )
-                          }
-                        >
-                          {t(
-                            activity.id === "water"
-                              ? "Drink Water"
-                              : activity.id === "exercise"
-                                ? "Exercise"
-                                : activity.id === "read"
-                                  ? "Read"
-                                  : activity.name,
-                          )}
-                          <X size={11} aria-hidden="true" />
-                        </button>
-                      ))}
-                    </div>
-                    <div className="activity-composer">
-                      <input
-                        value={newActivity}
-                        onChange={(e) => setNewActivity(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            addDraftActivity();
-                          }
-                        }}
-                        placeholder={t("add activities to your ritual")}
-                        aria-label={t("Add an activity")}
-                        maxLength={60}
-                      />
-                      <button
-                        type="button"
-                        aria-label={t("Add activity")}
-                        onClick={addDraftActivity}
-                      >
-                        <Plus size={17} />
-                      </button>
-                    </div>
-                  </div>
-                  <Button type="submit">{t("Save Changes")}</Button>
-                  <button
-                    type="button"
-                    className="delete-ritual"
-                    onClick={() => {
-                      setHabits((all) =>
-                        all.filter(
-                          (habit) => getRitualName(habit) !== editingRitual,
-                        ),
-                      );
-                      setEdited(true);
+                    <input
+                      ref={cameraInput}
+                      className="visually-hidden"
+                      type="file"
+                      accept="image/*"
+                      capture="user"
+                      onChange={(event) => {
+                        chooseProfilePhoto(event.target.files?.[0]);
+                        event.currentTarget.value = "";
+                      }}
+                    />
+                  </motion.div>
+                )}
+                {modal === "editProfile" && (
+                  <motion.form
+                    className="profile-edit-form"
+                    variants={listStagger}
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      setUsername(profileDraft.username.trim());
+                      setEmail(profileDraft.email.trim());
                       setModal(null);
-                      setToast(
-                        t("{name} ritual deleted.", { name: editingRitual }),
-                      );
+                      setToast(t("Personal information saved."));
                     }}
                   >
-                    {t("Delete Ritual")}
-                  </button>
-                </form>
-              )}
-              {modal === "photo" && (
-                <div className="profile-sheet-actions">
-                  {profilePhoto ? (
-                    <button
+                    <motion.label
+                      className="form-field-label"
+                      variants={optionItem}
+                    >
+                      {t("Username")}
+                      <input
+                        value={profileDraft.username}
+                        onChange={(event) =>
+                          setProfileDraft((draft) => ({
+                            ...draft,
+                            username: event.target.value,
+                          }))
+                        }
+                        required
+                        maxLength={40}
+                      />
+                    </motion.label>
+                    <motion.label
+                      className="form-field-label"
+                      variants={optionItem}
+                    >
+                      {t("Email")}
+                      <input
+                        type="email"
+                        value={profileDraft.email}
+                        onChange={(event) =>
+                          setProfileDraft((draft) => ({
+                            ...draft,
+                            email: event.target.value,
+                          }))
+                        }
+                        required
+                        maxLength={120}
+                      />
+                    </motion.label>
+                    <Button type="submit">{t("Save Changes")}</Button>
+                  </motion.form>
+                )}
+                {modal === "subscribe" && (
+                  <motion.div className="plan-sheet" variants={listStagger}>
+                    <motion.div
+                      className="plan-sheet-summary"
+                      variants={optionItem}
+                    >
+                      <strong>{t(chosenPlan.name)}</strong>
+                      <b>{rupiah(chosenPlan.price)}</b>
+                      <small>
+                        {chosenPlan.months === 1
+                          ? t("Billed every month")
+                          : t(
+                              "Billed once every {months} months · {price} / mo",
+                              {
+                                months: chosenPlan.months,
+                                price: rupiah(
+                                  chosenPlan.price / chosenPlan.months,
+                                ),
+                              },
+                            )}
+                      </small>
+                    </motion.div>
+                    <motion.p className="plan-sheet-note" variants={optionItem}>
+                      {activePlan
+                        ? t(
+                            "Your {name} plan will be replaced and the new period starts today.",
+                            { name: t(activePlan.name) },
+                          )
+                        : t(
+                            "Your plan starts today and renews automatically. No real payment is taken in this preview.",
+                          )}
+                    </motion.p>
+                    <Button onClick={() => startPlan(chosenPlan.id)}>
+                      {t(activePlan ? "Switch plan" : "Activate plan")}
+                    </Button>
+                    <motion.button
                       type="button"
-                      className="profile-action danger-action"
+                      className="plan-sheet-dismiss"
+                      variants={optionItem}
+                      whileHover={{ y: -1, transition: softSpring }}
+                      whileTap={{ scale: 0.97, transition: tapSpring }}
+                      onClick={closeModal}
+                    >
+                      {t("Not now")}
+                    </motion.button>
+                  </motion.div>
+                )}
+
+                {modal === "cancelPlan" && (
+                  <div className="confirmation-content">
+                    <p>
+                      {brand(
+                        t(
+                          "Cancel Odette Plus? You’ll keep access until {date}.",
+                          {
+                            date: renewsOn || t("the end of this period"),
+                          },
+                        ),
+                      )}
+                    </p>
+                    <motion.div
+                      className="confirmation-actions"
+                      variants={listStagger}
+                    >
+                      <motion.button
+                        type="button"
+                        variants={optionItem}
+                        whileHover={{ y: -2, transition: softSpring }}
+                        whileTap={{ scale: 0.97, transition: tapSpring }}
+                        onClick={closeModal}
+                      >
+                        {t("Keep plan")}
+                      </motion.button>
+                      <motion.button
+                        type="button"
+                        className="confirm-signout"
+                        variants={optionItem}
+                        whileHover={{ y: -2, transition: softSpring }}
+                        whileTap={{ scale: 0.97, transition: tapSpring }}
+                        onClick={() => {
+                          setPlanId(null);
+                          setPlanStarted("");
+                          setModal(null);
+                          setToast(
+                            t("Subscription cancelled. You’re on Odette Free."),
+                          );
+                        }}
+                      >
+                        {t("Yes, cancel")}
+                      </motion.button>
+                    </motion.div>
+                  </div>
+                )}
+
+                {modal === "signOut" && (
+                  <div className="confirmation-content">
+                    <p>{t("Are you sure you want to sign out?")}</p>
+                    <motion.div
+                      className="confirmation-actions"
+                      variants={listStagger}
+                    >
+                      <motion.button
+                        type="button"
+                        variants={optionItem}
+                        whileHover={{ y: -2, transition: softSpring }}
+                        whileTap={{ scale: 0.97, transition: tapSpring }}
+                        onClick={closeModal}
+                      >
+                        {t("No")}
+                      </motion.button>
+                      <motion.button
+                        type="button"
+                        className="confirm-signout"
+                        variants={optionItem}
+                        whileHover={{ y: -2, transition: softSpring }}
+                        whileTap={{ scale: 0.97, transition: tapSpring }}
+                        onClick={() => {
+                          setModal(null);
+                          setAuthFirstName("");
+                          setAuthLastName("");
+                          setAuthEmail("");
+                          go("welcome");
+                        }}
+                      >
+                        {t("Yes, sign out")}
+                      </motion.button>
+                    </motion.div>
+                  </div>
+                )}
+
+                {modal === "google" && (
+                  <div className="help-content">
+                    <p>
+                      {t("Google sign-in isn’t connected in this preview yet.")}
+                    </p>
+                    <p>
+                      {brand(
+                        t(
+                          "You can still explore Odette and keep your rituals on this device.",
+                        ),
+                      )}
+                    </p>
+                    <Button
                       onClick={() => {
-                        setProfilePhoto("");
                         setModal(null);
-                        setToast(t("Profile photo removed."));
+                        go(screen === "signup" ? "name" : "today");
                       }}
                     >
-                      <Trash2 size={19} aria-hidden="true" />
-                      {t("Remove photo")}
-                    </button>
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        className="profile-action"
-                        onClick={() => uploadInput.current?.click()}
-                      >
-                        <Upload size={19} aria-hidden="true" />
-                        {t("Upload from device")}
-                      </button>
-                      <button
-                        type="button"
-                        className="profile-action"
-                        onClick={() => cameraInput.current?.click()}
-                      >
-                        <Camera size={19} aria-hidden="true" />
-                        {t("Take photo")}
-                      </button>
-                    </>
-                  )}
-                  <input
-                    ref={uploadInput}
-                    className="visually-hidden"
-                    type="file"
-                    accept="image/*"
-                    onChange={(event) => {
-                      chooseProfilePhoto(event.target.files?.[0]);
-                      event.currentTarget.value = "";
-                    }}
-                  />
-                  <input
-                    ref={cameraInput}
-                    className="visually-hidden"
-                    type="file"
-                    accept="image/*"
-                    capture="user"
-                    onChange={(event) => {
-                      chooseProfilePhoto(event.target.files?.[0]);
-                      event.currentTarget.value = "";
-                    }}
-                  />
-                </div>
-              )}
-              {modal === "editProfile" && (
-                <form
-                  className="profile-edit-form"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    setUsername(profileDraft.username.trim());
-                    setEmail(profileDraft.email.trim());
-                    setModal(null);
-                    setToast(t("Personal information saved."));
+                      {t("Continue to preview")}
+                    </Button>
+                  </div>
+                )}
+              </Dialog>
+            )}
+          </AnimatePresence>
+          <AnimatePresence>
+            {modal === "done" && (
+              <div className="modal-layer completion-layer">
+                <motion.button
+                  className="scrim"
+                  aria-label={t("Close completion message")}
+                  tabIndex={-1}
+                  onClick={closeModal}
+                  initial={{ opacity: 0 }}
+                  animate={{
+                    opacity: 1,
+                    transition: { duration: 0.36, ease: easing },
                   }}
+                  exit={{
+                    opacity: 0,
+                    transition: { duration: 0.26, ease: exitEasing },
+                  }}
+                />
+                <motion.section
+                  className="completion-sheet"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="completion-title"
+                  variants={sheetMotion}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
                 >
-                  <label className="form-field-label">
-                    {t("Username")}
-                    <input
-                      value={profileDraft.username}
-                      onChange={(event) =>
-                        setProfileDraft((draft) => ({
-                          ...draft,
-                          username: event.target.value,
-                        }))
-                      }
-                      required
-                      maxLength={40}
-                    />
-                  </label>
-                  <label className="form-field-label">
-                    {t("Email")}
-                    <input
-                      type="email"
-                      value={profileDraft.email}
-                      onChange={(event) =>
-                        setProfileDraft((draft) => ({
-                          ...draft,
-                          email: event.target.value,
-                        }))
-                      }
-                      required
-                      maxLength={120}
-                    />
-                  </label>
-                  <Button type="submit">{t("Save Changes")}</Button>
-                </form>
-              )}
-              {modal === "subscribe" && (
-                <div className="plan-sheet">
-                  <div className="plan-sheet-summary">
-                    <span>{brand("Odette Plus")}</span>
-                    <strong>{t(chosenPlan.name)}</strong>
-                    <b>{rupiah(chosenPlan.price)}</b>
-                    <small>
-                      {chosenPlan.months === 1
-                        ? t("Billed every month")
-                        : t("Billed once every {months} months · {price} / mo", {
-                            months: chosenPlan.months,
-                            price: rupiah(
-                              chosenPlan.price / chosenPlan.months,
-                            ),
-                          })}
-                    </small>
-                  </div>
-                  <p className="plan-sheet-note">
-                    {activePlan
-                      ? t(
-                          "Your {name} plan will be replaced and the new period starts today.",
-                          { name: t(activePlan.name) },
-                        )
-                      : t(
-                          "Your plan starts today and renews automatically. No real payment is taken in this preview.",
-                        )}
-                  </p>
-                  <Button onClick={() => startPlan(chosenPlan.id)}>
-                    {t(activePlan ? "Switch plan" : "Activate plan")}
-                  </Button>
-                  <button
-                    type="button"
-                    className="plan-sheet-dismiss"
-                    onClick={closeModal}
-                  >
-                    {t("Not now")}
-                  </button>
-                </div>
-              )}
-
-              {modal === "cancelPlan" && (
-                <div className="confirmation-content">
-                  <p>
-                    {brand(
-                      t("Cancel Odette Plus? You’ll keep access until {date}.", {
-                        date: renewsOn || t("the end of this period"),
-                      }),
-                    )}
-                  </p>
-                  <div className="confirmation-actions">
-                    <button type="button" onClick={closeModal}>
-                      {t("Keep plan")}
-                    </button>
-                    <button
-                      type="button"
-                      className="confirm-signout"
-                      onClick={() => {
-                        setPlanId(null);
-                        setPlanStarted("");
-                        setModal(null);
-                        setToast(t("Subscription cancelled. You’re on Odette Free."));
-                      }}
-                    >
-                      {t("Yes, cancel")}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {modal === "signOut" && (
-                <div className="confirmation-content">
-                  <p>{t("Are you sure you want to sign out?")}</p>
-                  <div className="confirmation-actions">
-                    <button type="button" onClick={closeModal}>
-                      {t("No")}
-                    </button>
-                    <button
-                      type="button"
-                      className="confirm-signout"
-                      onClick={() => {
-                        setModal(null);
-                        setAuthFirstName("");
-                        setAuthLastName("");
-                        setAuthEmail("");
-                        go("welcome");
-                      }}
-                    >
-                      {t("Yes, sign out")}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {modal === "google" && (
-                <div className="help-content">
-                  <p>{t("Google sign-in isn’t connected in this preview yet.")}</p>
-                  <p>
-                    {brand(
-                      t("You can still explore Odette and keep your rituals on this device."),
-                    )}
-                  </p>
+                  <motion.h2 id="completion-title" variants={riseClose}>
+                    {t("You’re all done")}
+                  </motion.h2>
+                  <motion.p variants={riseClose}>
+                    {t("Today looked good on you")}
+                  </motion.p>
+                  <Flower
+                    name="lotus-bouquet"
+                    className="completion-flower"
+                    float
+                    delay={0.3}
+                  />
                   <Button
                     onClick={() => {
-                      setModal(null);
-                      go(screen === "signup" ? "name" : "today");
+                      closeModal();
+                      go("today");
                     }}
                   >
-                    {t("Continue to preview")}
+                    {t("See Summary")}
                   </Button>
-                </div>
-              )}
-            </Dialog>
-          )}
-        </AnimatePresence>
-        <AnimatePresence>
-          {modal === "done" && (
-            <div className="modal-layer completion-layer">
-              <motion.button
-                className="scrim"
-                aria-label={t("Close completion message")}
-                tabIndex={-1}
-                onClick={closeModal}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-              />
-              <motion.section
-                className="completion-sheet"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="completion-title"
-                initial={{ y: "100%" }}
-                animate={{ y: 0 }}
-                exit={{ y: "100%" }}
-                transition={{ duration: 0.5, ease: easing }}
+                </motion.section>
+              </div>
+            )}
+          </AnimatePresence>
+          <AnimatePresence>
+            {toast && (
+              <motion.div
+                role="status"
+                className="toast"
+                initial={{
+                  opacity: 0,
+                  y: 26,
+                  scale: 0.94,
+                  filter: "blur(6px)",
+                }}
+                animate={{
+                  opacity: 1,
+                  y: 0,
+                  scale: 1,
+                  filter: "blur(0px)",
+                  transition: softSpring,
+                }}
+                exit={{
+                  opacity: 0,
+                  y: 16,
+                  scale: 0.96,
+                  filter: "blur(6px)",
+                  transition: { duration: 0.28, ease: exitEasing },
+                }}
               >
-                <h2 id="completion-title">{t("You’re all done")}</h2>
-                <p>{t("Today looked good on you")}</p>
-                <Flower name="lotus-bouquet" className="completion-flower" />
-                <Button
-                  onClick={() => {
-                    closeModal();
-                    go("today");
-                  }}
-                >
-                  {t("See Summary")}
-                </Button>
-              </motion.section>
-            </div>
-          )}
-        </AnimatePresence>
-        <AnimatePresence>
-          {toast && (
-            <motion.div
-              role="status"
-              className="toast"
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 15 }}
-            >
-              {brand(toast)}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </main>
+                {brand(toast)}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </main>
       </I18nContext.Provider>
     </MotionConfig>
   );
