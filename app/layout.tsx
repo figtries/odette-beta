@@ -12,7 +12,7 @@ export const viewport: Viewport = {
   themeColor: "#fefdfd",
 };
 export const metadata: Metadata = {
-  title: "Odette: Small routines, softer days",
+  title: "Odette",
   description:
     "A little space for your daily rituals. Build gentle routines and watch yourself grow.",
   icons: {
