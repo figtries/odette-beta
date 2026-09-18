@@ -1,0 +1,12 @@
+node_modules/
+.next/
+package-lock.json
+public/
+image/
+next-env.d.ts
+
+# Build output. The exported HTML must stay exactly as Next wrote it: adding
+# whitespace to it breaks React hydration. Run "npm run html:readable" for a
+# readable copy instead.
+out/
+out-readable/
