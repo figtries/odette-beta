@@ -487,8 +487,11 @@ input[type="checkbox"] {
 }
 .ready {
   position: relative;
-  min-height: 844px;
-  padding: 103px 40px 90px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: max(100svh, 844px);
+  padding: 103px 40px max(40px, env(safe-area-inset-bottom));
   text-align: center;
 }
 .ready h1 {
@@ -501,18 +504,19 @@ input[type="checkbox"] {
   margin-top: 16px;
 }
 .ready-bouquet {
-  position: absolute;
-  top: 224px;
-  left: 16%;
-  width: 70%;
-  height: 408px;
+  width: min(70vw, 273px);
+  min-height: 0;
+  max-height: none;
+  flex: 1 1 auto;
+  margin: 44px auto 0;
   object-fit: contain;
+  object-position: center bottom;
 }
 .ready > .primary {
-  position: absolute;
-  top: 620px;
-  left: 40px;
-  width: calc(100% - 80px);
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  margin-top: 0;
   font-size: 17px;
 }
 .content {

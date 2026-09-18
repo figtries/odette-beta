@@ -254,8 +254,9 @@ html {
 }
 
 .ready {
+  align-items: center;
   padding: max(var(--entry-top), calc(var(--entry-height) * 0.122)) 40px
-    max(var(--entry-bottom), calc(var(--entry-height) * 0.107));
+    max(var(--entry-bottom), calc(var(--entry-height) * 0.05));
 }
 .ready h1 {
   font-size: 29px;
@@ -268,22 +269,25 @@ html {
   flex-shrink: 0;
 }
 .ready-bouquet {
-  position: absolute;
-  top: calc(var(--entry-height) * 0.2654);
-  left: 16%;
-  width: 70%;
-  height: calc(var(--entry-height) * 0.4834);
+  position: static;
+  width: min(70vw, 273px);
+  min-height: 0;
+  max-height: none;
+  height: auto;
+  flex: 1 1 0;
   object-fit: contain;
-  margin: 0;
+  object-position: center bottom;
+  margin: clamp(20px, calc(var(--entry-height) * 0.045), 44px) auto 0;
   padding: 0;
   transform: none;
 }
 .ready > .primary {
-  position: absolute;
+  position: relative;
   z-index: 1;
-  top: calc(var(--entry-height) * 0.7346);
-  left: 40px;
-  width: calc(100% - 80px);
+  top: auto;
+  left: auto;
+  width: 100%;
+  margin-top: -12px;
   min-height: clamp(56px, calc(var(--entry-height) * 0.0758), 64px);
   font-size: 17px;
 }
