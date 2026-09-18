@@ -1229,12 +1229,11 @@ input[type="checkbox"] {
   inset: 0;
   width: 100%;
   height: 100%;
-  /* A 2px blur is enough to set the page back a step. A blurred backdrop is
-     re-blurred on every frame it fades for, so the softness stays and the fade
-     is kept short instead. */
-  background: #30303d52;
-  -webkit-backdrop-filter: blur(2px);
-  backdrop-filter: blur(2px);
+  /* No `backdrop-filter`. A blurred backdrop is re-blurred on every frame it
+     fades for, and this one fades slowly on purpose, so it would be paying that
+     cost for the whole ramp. The softness here comes from the timing and from a
+     dim that arrives gradually, neither of which costs anything per frame. */
+  background: #30303d5c;
   cursor: default;
   will-change: opacity;
 }
@@ -1966,9 +1965,8 @@ input[type="checkbox"] {
   padding: 19px 28px max(25px, env(safe-area-inset-bottom));
   border-radius: 30px 30px 0 0;
   /* Promote the sheet before it slides, so the first frame is not the one that
-     pays for the layer, and keep its repaints inside its own box. */
+     pays for the layer. */
   will-change: transform;
-  contain: paint;
 }
 .sheet-handle {
   display: block;
