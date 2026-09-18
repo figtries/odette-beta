@@ -44,8 +44,9 @@ html {
 }
 
 .welcome {
-  --welcome-height: max(560px, var(--entry-height));
   --welcome-width: min(100vw, 390px);
+  /* Keep the Figma proportions when mobile browser bars shorten the viewport. */
+  --welcome-height: max(560px, var(--entry-height), calc(var(--welcome-width) * 612 / 276));
   min-height: var(--welcome-height);
   padding: max(var(--entry-top), calc(var(--welcome-height) * 0.096))
     clamp(24px, 9vw, 36px) var(--entry-bottom);

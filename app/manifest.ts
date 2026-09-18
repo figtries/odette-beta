@@ -4,7 +4,7 @@ export const dynamic = "force-static";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Odette — Small routines, softer days",
+    name: "Odette: Small routines, softer days",
     short_name: "Odette",
     description:
       "A little space for your daily rituals. Build gentle routines and watch yourself grow.",
