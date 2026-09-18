@@ -575,6 +575,18 @@ input[type="checkbox"] {
   justify-content: center;
   gap: 7px;
   padding: 0;
+  border: 0;
+  border-radius: 50%;
+}
+.hamburger::before {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border: 1px solid #555866;
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 .hamburger > span {
   width: 26px;
@@ -582,16 +594,19 @@ input[type="checkbox"] {
   background: #222;
   transform-origin: center;
 }
-.hamburger.is-open {
-  border: 1px solid #555866;
-  border-radius: 50%;
-  width: 36px;
-  height: 36px;
-  margin-right: 2px;
-  gap: 7px;
+.hamburger.is-open::before {
+  opacity: 1;
 }
-.hamburger.is-open > span {
-  width: 15px;
+@media (prefers-reduced-motion: reduce) {
+  .hamburger::before {
+    transition: none;
+  }
+}
+/* Set by <Flower float>. These loop for as long as the screen is open, so they
+   are the one case where a permanent `will-change` is the cheap option: it buys
+   a layer once instead of a repaint every frame. */
+.is-floating {
+  will-change: transform;
 }
 .greeting {
   padding: 6px 20px 0;
@@ -1239,7 +1254,7 @@ input[type="checkbox"] {
 }
 .menu-panel {
   position: absolute;
-  will-change: clip-path;
+  will-change: transform, opacity;
   top: 12px;
   right: 17px;
   width: 230px;
@@ -1270,6 +1285,7 @@ input[type="checkbox"] {
   right: 0;
   max-height: 90svh;
   overflow: auto;
+  overscroll-behavior-y: contain;
   background: #fff;
   border-radius: 30px 30px 0 0;
   padding: 25px 25px 20px;

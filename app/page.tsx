@@ -117,12 +117,33 @@ const softSpring: Transition = {
   visualDuration: 0.34,
   bounce: 0.14,
 };
-/* The sheet sits on `bottom: 0`, so an overshoot lifts it and opens a gap
-   underneath. Lightness has to come from the pace, not from a bounce. */
-const sheetSpring: Transition = {
-  type: "spring",
-  visualDuration: 0.3,
-  bounce: 0.06,
+/* Overlays accelerate gently and settle without a spring overshoot. Keep the
+   hamburger's CSS ring on this same timing. */
+const overlayEnter: Transition = {
+  type: "tween",
+  duration: 0.5,
+  ease: [0.25, 0.1, 0.25, 1],
+};
+const overlayExit: Transition = {
+  type: "tween",
+  duration: 0.34,
+  ease: [0.4, 0, 0.6, 1],
+};
+/* A sheet crosses most of the screen, so it cannot afford the gentle start
+   `overlayEnter` gives the small stuff. `[0.25, 0.1, 0.25, 1]` is plain CSS
+   `ease`: slow at both ends, which over that distance reads as the panel
+   struggling to lift — heavy rather than calm, and easy to mistake for dropped
+   frames. This curve leaves at once and spends its length arriving instead, and
+   the sheet goes back down faster than it came up. */
+const sheetEnter: Transition = {
+  type: "tween",
+  duration: 0.42,
+  ease: [0.32, 0.72, 0, 1],
+};
+const sheetExit: Transition = {
+  type: "tween",
+  duration: 0.26,
+  ease: [0.4, 0, 1, 1],
 };
 const tapSpring: Transition = {
   type: "spring",
@@ -273,11 +294,26 @@ const menuMotionReduced = makeMenuMotion(true);
    ended up cascading in behind the panel; with objects nothing is inherited,
    so the panel is the only thing that moves. One element travelling instead of
    eight is both lighter to watch and cheaper to composite. */
-const sheetHidden: TargetAndTransition = { y: "100%" };
-const sheetShown: TargetAndTransition = { y: 0, transition: sheetSpring };
+/* Animate the whole `transform` as one value, not `y`. Only the names in
+   Motion's `acceleratedValues` — transform, opacity, filter, clipPath,
+   backgroundColor — can be handed to the browser's own animation engine and run
+   off the main thread; `y` is not one of them, so writing it here would quietly
+   move the slide back onto the main thread, where it has to share frames with
+   React. The string form looks less idiomatic and is the faster one. */
+const sheetHidden: TargetAndTransition = {
+  transform: "translate3d(0, 100%, 0)",
+};
+const sheetShown: TargetAndTransition = {
+  transform: "translate3d(0, 0%, 0)",
+  transition: sheetEnter,
+};
 const sheetLeaving: TargetAndTransition = {
-  y: "100%",
-  transition: { duration: 0.22, ease: exitEasing },
+  ...sheetHidden,
+  transition: sheetExit,
+};
+const sheetStill: TargetAndTransition = {
+  ...sheetShown,
+  transition: { duration: 0 },
 };
 const cardHover = { y: -2, transition: softSpring };
 const cardTap = { scale: 0.985, transition: tapSpring };
@@ -465,7 +501,14 @@ function Flower({
       src={src}
       alt=""
       aria-hidden="true"
-      className={className}
+      /* A floating bloom needs `is-floating`. Its drift is written to inline
+         styles from JavaScript, and the browser only promotes an element by
+         itself when it recognises the animation as its own, so without the hint
+         these images are re-painted on every frame of a loop that never ends —
+         the largest of them from a 1139x1631 source. That repaint is the tax
+         everything else pays: a sheet sliding up is composited, but it still has
+         to wait behind this. */
+      className={float ? `${className} is-floating`.trim() : className}
       initial={{ scale: 0.93 }}
       animate={{
         scale: 1,
@@ -925,12 +968,13 @@ function Dialog({
   onClose: () => void;
 }) {
   const t = useT();
+  const reduced = useReducedMotion();
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const previous = document.activeElement as HTMLElement;
     const nodes = () =>
       ref.current?.querySelectorAll<HTMLElement>("button,input,select,a[href]");
-    nodes()?.[0]?.focus();
+    nodes()?.[0]?.focus({ preventScroll: true });
     const key = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
       if (e.key === "Tab") {
@@ -951,7 +995,7 @@ function Dialog({
     document.addEventListener("keydown", key);
     return () => {
       document.removeEventListener("keydown", key);
-      previous?.focus();
+      previous?.focus({ preventScroll: true });
     };
   }, [onClose]);
   return (
@@ -962,8 +1006,14 @@ function Dialog({
         className="scrim"
         onClick={onClose}
         initial={{ opacity: 0 }}
-        animate={{ opacity: 1, transition: { duration: 0.24, ease: easing } }}
-        exit={{ opacity: 0, transition: { duration: 0.16, ease: exitEasing } }}
+        animate={{
+          opacity: 1,
+          transition: reduced ? { duration: 0.1 } : sheetEnter,
+        }}
+        exit={{
+          opacity: 0,
+          transition: reduced ? { duration: 0.1 } : sheetExit,
+        }}
       />
       <motion.div
         ref={ref}
@@ -971,9 +1021,9 @@ function Dialog({
         aria-modal="true"
         aria-label={title}
         className="sheet"
-        initial={sheetHidden}
-        animate={sheetShown}
-        exit={sheetLeaving}
+        initial={reduced ? false : sheetHidden}
+        animate={reduced ? sheetStill : sheetShown}
+        exit={reduced ? sheetStill : sheetLeaving}
       >
         <span className="sheet-handle" aria-hidden="true" />
         <header>
@@ -1234,7 +1284,9 @@ export default function Home() {
   }, [toast]);
   useEffect(() => {
     if (!menu) return;
-    menuRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+    menuRef.current
+      ?.querySelector<HTMLButtonElement>("button")
+      ?.focus({ preventScroll: true });
     const key = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setMenu(false);
@@ -1658,13 +1710,24 @@ export default function Home() {
                   aria-controls="main-menu"
                   onClick={() => setMenu((v) => !v)}
                 >
+                  {/* Keep the hit area and bar widths fixed while they morph. */}
                   <motion.span
-                    animate={{ y: menu ? 4 : 0, rotate: menu ? 45 : 0 }}
-                    transition={softSpring}
+                    initial={false}
+                    animate={{
+                      transform: menu
+                        ? "translateY(4px) rotate(45deg) scaleX(0.576923)"
+                        : "translateY(0px) rotate(0deg) scaleX(1)",
+                    }}
+                    transition={reduced ? { duration: 0 } : overlayEnter}
                   />
                   <motion.span
-                    animate={{ y: menu ? -4 : 0, rotate: menu ? -45 : 0 }}
-                    transition={softSpring}
+                    initial={false}
+                    animate={{
+                      transform: menu
+                        ? "translateY(-4px) rotate(-45deg) scaleX(0.576923)"
+                        : "translateY(0px) rotate(0deg) scaleX(1)",
+                    }}
+                    transition={reduced ? { duration: 0 } : overlayEnter}
                   />
                 </motion.button>
               </motion.nav>
@@ -3220,8 +3283,8 @@ export default function Home() {
                   y: 12,
                   transition: { duration: 0.2, ease: exitEasing },
                 }}
-                whileHover={{ scale: 1.07, rotate: 90, transition: softSpring }}
-                whileTap={{ scale: 0.9, transition: tapSpring }}
+                whileHover={{ scale: 1.03, transition: overlayEnter }}
+                whileTap={{ scale: 0.96, transition: tapSpring }}
               >
                 <Plus size={32} strokeWidth={1.2} />
               </motion.button>
@@ -3238,21 +3301,35 @@ export default function Home() {
                   initial={{ opacity: 0 }}
                   animate={{
                     opacity: 1,
-                    transition: { duration: 0.24, ease: easing },
+                    transition: reduced ? { duration: 0.1 } : overlayEnter,
                   }}
                   exit={{
                     opacity: 0,
-                    transition: { duration: 0.16, ease: exitEasing },
+                    transition: reduced ? { duration: 0.1 } : overlayExit,
                   }}
                 />
                 <motion.div
                   className="menu-panel"
                   id="main-menu"
                   ref={menuRef}
-                  initial={{ clipPath: "inset(0% 0% 100% 100% round 22px)" }}
-                  animate={{ clipPath: "inset(0% 0% 0% 0% round 22px)" }}
-                  exit={{ clipPath: "inset(0% 0% 100% 100% round 22px)" }}
-                  transition={{ duration: 0.36, ease: easing }}
+                  initial={{
+                    opacity: 0,
+                    transform: reduced
+                      ? "none"
+                      : "translate3d(0, -8px, 0) scale(0.98)",
+                  }}
+                  animate={{
+                    opacity: 1,
+                    transform: "translate3d(0, 0px, 0) scale(1)",
+                    transition: reduced ? { duration: 0.1 } : overlayEnter,
+                  }}
+                  exit={{
+                    opacity: 0,
+                    transform: reduced
+                      ? "none"
+                      : "translate3d(0, -6px, 0) scale(0.98)",
+                    transition: reduced ? { duration: 0.1 } : overlayExit,
+                  }}
                   style={{ transformOrigin: "top right" }}
                 >
                   {(
@@ -4021,11 +4098,11 @@ export default function Home() {
                   initial={{ opacity: 0 }}
                   animate={{
                     opacity: 1,
-                    transition: { duration: 0.24, ease: easing },
+                    transition: reduced ? { duration: 0.1 } : overlayEnter,
                   }}
                   exit={{
                     opacity: 0,
-                    transition: { duration: 0.16, ease: exitEasing },
+                    transition: reduced ? { duration: 0.1 } : overlayExit,
                   }}
                 />
                 <motion.section
@@ -4033,9 +4110,9 @@ export default function Home() {
                   role="dialog"
                   aria-modal="true"
                   aria-labelledby="completion-title"
-                  initial={sheetHidden}
-                  animate={sheetShown}
-                  exit={sheetLeaving}
+                  initial={reduced ? false : sheetHidden}
+                  animate={reduced ? sheetStill : sheetShown}
+                  exit={reduced ? sheetStill : sheetLeaving}
                 >
                   <h2 id="completion-title">{t("You’re all done")}</h2>
                   <p>{t("Today looked good on you")}</p>
