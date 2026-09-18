@@ -106,18 +106,19 @@ type Routine = Habit["routine"];
    ease-in exits, and springs that settle instead of bouncing. */
 const easing = [0.22, 1, 0.36, 1] as const;
 const exitEasing = [0.55, 0, 0.75, 0] as const;
+/* `visualDuration` + `bounce` state how long a spring should *look* like it
+   takes, so these land on time. The old stiffness/damping pairs were slightly
+   overdamped, which is what made everything creep toward its resting place. */
 const softSpring: Transition = {
   type: "spring",
-  stiffness: 190,
-  damping: 26,
-  mass: 0.9,
+  visualDuration: 0.32,
+  bounce: 0.12,
 };
-/* Critically damped so a sheet never overshoots past the bottom edge. */
+/* Almost no bounce, so a sheet never overshoots past the bottom edge. */
 const sheetSpring: Transition = {
   type: "spring",
-  stiffness: 210,
-  damping: 30,
-  mass: 1,
+  visualDuration: 0.34,
+  bounce: 0.05,
 };
 const tapSpring: Transition = {
   type: "spring",
@@ -131,29 +132,33 @@ const popSpring: Transition = {
   damping: 26,
   mass: 0.7,
 };
-/* Screens drift up out of a soft blur and stagger their own children. */
-const makeScreenMotion = (blur: boolean): Variants => ({
-  initial: { opacity: 0, y: 18, ...(blur ? { filter: "blur(8px)" } : null) },
+/* Screens drift up and stagger their own children. Deliberately no
+   `filter: blur()`: an animating blur forces the browser to re-rasterise the
+   whole screen every frame, while opacity and transform stay on the
+   compositor. That one property carried most of the weight. */
+const screenMotion: Variants = {
+  initial: { opacity: 0, y: 14 },
   animate: {
     opacity: 1,
     y: 0,
-    ...(blur ? { filter: "blur(0px)" } : null),
     transition: {
-      duration: 0.55,
+      duration: 0.4,
       ease: easing,
-      staggerChildren: 0.055,
-      delayChildren: 0.05,
+      staggerChildren: 0.035,
+      delayChildren: 0.03,
     },
   },
   exit: {
     opacity: 0,
-    y: -12,
-    ...(blur ? { filter: "blur(8px)" } : null),
-    transition: { duration: 0.26, ease: exitEasing },
+    y: -10,
+    transition: { duration: 0.2, ease: exitEasing },
   },
-});
-const screenMotion = makeScreenMotion(true);
-const screenMotionFlat = makeScreenMotion(false);
+};
+const screenMotionFlat: Variants = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1, transition: { duration: 0.2, ease: easing } },
+  exit: { opacity: 0, transition: { duration: 0.14, ease: exitEasing } },
+};
 const rise: Variants = {
   initial: { opacity: 0, y: 20 },
   animate: { opacity: 1, y: 0, transition: { duration: 0.62, ease: easing } },
@@ -262,9 +267,9 @@ const sheetMotion: Variants = {
   initial: { y: "100%" },
   animate: {
     y: 0,
-    transition: { ...sheetSpring, staggerChildren: 0.05, delayChildren: 0.14 },
+    transition: { ...sheetSpring, staggerChildren: 0.03, delayChildren: 0.04 },
   },
-  exit: { y: "100%", transition: { duration: 0.34, ease: exitEasing } },
+  exit: { y: "100%", transition: { duration: 0.24, ease: exitEasing } },
 };
 const cardHover = { y: -2, transition: softSpring };
 const cardTap = { scale: 0.985, transition: tapSpring };
@@ -870,16 +875,16 @@ function Disclosure({
               height: "auto",
               opacity: 1,
               transition: {
-                height: { duration: 0.4, ease: easing },
-                opacity: { duration: 0.3, ease: easing, delay: 0.08 },
+                height: { duration: 0.26, ease: easing },
+                opacity: { duration: 0.2, ease: easing, delay: 0.04 },
               },
             }}
             exit={{
               height: 0,
               opacity: 0,
               transition: {
-                height: { duration: 0.3, ease: exitEasing },
-                opacity: { duration: 0.16 },
+                height: { duration: 0.2, ease: exitEasing },
+                opacity: { duration: 0.12 },
               },
             }}
           >
@@ -949,8 +954,8 @@ function Dialog({
         className="scrim"
         onClick={onClose}
         initial={{ opacity: 0 }}
-        animate={{ opacity: 1, transition: { duration: 0.36, ease: easing } }}
-        exit={{ opacity: 0, transition: { duration: 0.26, ease: exitEasing } }}
+        animate={{ opacity: 1, transition: { duration: 0.26, ease: easing } }}
+        exit={{ opacity: 0, transition: { duration: 0.18, ease: exitEasing } }}
       />
       <motion.div
         ref={ref}
@@ -3230,11 +3235,11 @@ export default function Home() {
                   initial={{ opacity: 0 }}
                   animate={{
                     opacity: 1,
-                    transition: { duration: 0.36, ease: easing },
+                    transition: { duration: 0.26, ease: easing },
                   }}
                   exit={{
                     opacity: 0,
-                    transition: { duration: 0.26, ease: exitEasing },
+                    transition: { duration: 0.18, ease: exitEasing },
                   }}
                 />
                 <motion.div
@@ -3244,7 +3249,7 @@ export default function Home() {
                   initial={{ clipPath: "inset(0% 0% 100% 100% round 22px)" }}
                   animate={{ clipPath: "inset(0% 0% 0% 0% round 22px)" }}
                   exit={{ clipPath: "inset(0% 0% 100% 100% round 22px)" }}
-                  transition={{ duration: 0.55, ease: easing }}
+                  transition={{ duration: 0.34, ease: easing }}
                   style={{ transformOrigin: "top right" }}
                 >
                   {(
@@ -3259,12 +3264,12 @@ export default function Home() {
                   ).map(([name, target], i) => (
                     <motion.button
                       key={name}
-                      initial={{ opacity: 0, y: 12, filter: "blur(4px)" }}
-                      animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                      exit={{ opacity: 0, y: 6 }}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 5 }}
                       transition={{
-                        delay: 0.12 + i * 0.05,
-                        duration: 0.38,
+                        delay: 0.04 + i * 0.028,
+                        duration: 0.24,
                         ease: easing,
                       }}
                       whileHover={{ x: 5, transition: softSpring }}
@@ -4076,11 +4081,11 @@ export default function Home() {
                   initial={{ opacity: 0 }}
                   animate={{
                     opacity: 1,
-                    transition: { duration: 0.36, ease: easing },
+                    transition: { duration: 0.26, ease: easing },
                   }}
                   exit={{
                     opacity: 0,
-                    transition: { duration: 0.26, ease: exitEasing },
+                    transition: { duration: 0.18, ease: exitEasing },
                   }}
                 />
                 <motion.section
@@ -4122,25 +4127,18 @@ export default function Home() {
               <motion.div
                 role="status"
                 className="toast"
-                initial={{
-                  opacity: 0,
-                  y: 26,
-                  scale: 0.94,
-                  filter: "blur(6px)",
-                }}
+                initial={{ opacity: 0, y: 20, scale: 0.96 }}
                 animate={{
                   opacity: 1,
                   y: 0,
                   scale: 1,
-                  filter: "blur(0px)",
                   transition: softSpring,
                 }}
                 exit={{
                   opacity: 0,
-                  y: 16,
-                  scale: 0.96,
-                  filter: "blur(6px)",
-                  transition: { duration: 0.28, ease: exitEasing },
+                  y: 12,
+                  scale: 0.98,
+                  transition: { duration: 0.16, ease: exitEasing },
                 }}
               >
                 {brand(toast)}

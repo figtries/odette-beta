@@ -1229,15 +1229,18 @@ input[type="checkbox"] {
   inset: 0;
   width: 100%;
   height: 100%;
-  background: #30303d4d;
-  /* Fading the element fades its backdrop blur with it, so the page settles
-     out of focus instead of dimming in one step. */
-  -webkit-backdrop-filter: blur(3px);
-  backdrop-filter: blur(3px);
+  /* A 2px blur is enough to set the page back a step. A blurred backdrop is
+     re-blurred on every frame it fades for, so the softness stays and the fade
+     is kept short instead. */
+  background: #30303d52;
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
   cursor: default;
+  will-change: opacity;
 }
 .menu-panel {
   position: absolute;
+  will-change: clip-path;
   top: 12px;
   right: 17px;
   width: 230px;
@@ -1436,6 +1439,7 @@ input[type="checkbox"] {
   line-height: 1.5;
   text-align: center;
   box-shadow: 0 8px 30px #0002;
+  will-change: transform, opacity;
 }
 @media (min-width: 600px) {
   .app {
@@ -1961,6 +1965,10 @@ input[type="checkbox"] {
 .sheet {
   padding: 19px 28px max(25px, env(safe-area-inset-bottom));
   border-radius: 30px 30px 0 0;
+  /* Promote the sheet before it slides, so the first frame is not the one that
+     pays for the layer, and keep its repaints inside its own box. */
+  will-change: transform;
+  contain: paint;
 }
 .sheet-handle {
   display: block;
@@ -2200,6 +2208,7 @@ input[type="checkbox"] {
   background: #fff;
   padding: clamp(26px, 5.5vh, 47px) 36px max(26px, env(safe-area-inset-bottom));
   text-align: center;
+  will-change: transform;
 }
 .completion-sheet h2 {
   font-size: 21px;
@@ -2217,7 +2226,10 @@ input[type="checkbox"] {
   max-height: none;
   flex: 1 1 auto;
   align-self: center;
-  margin: 18px auto 0;
+  /* The stems run off the bottom edge of the artwork, so the image is tucked a
+     few pixels under the button: the flat cut hides behind it and the bouquet
+     reads as standing on the button instead of being sliced mid-air. */
+  margin: 18px auto -13px;
   object-fit: contain;
   object-position: center bottom;
 }
