@@ -17,6 +17,7 @@ import {
   motion,
   MotionConfig,
   useReducedMotion,
+  type TargetAndTransition,
   type Transition,
   type Variants,
 } from "framer-motion";
@@ -120,7 +121,7 @@ const softSpring: Transition = {
    underneath. Lightness has to come from the pace, not from a bounce. */
 const sheetSpring: Transition = {
   type: "spring",
-  visualDuration: 0.34,
+  visualDuration: 0.3,
   bounce: 0.06,
 };
 const tapSpring: Transition = {
@@ -179,13 +180,7 @@ const listStagger: Variants = {
   initial: {},
   animate: { transition: { staggerChildren: 0.05, delayChildren: 0.04 } },
 };
-/* The same idea for a form inside a sheet, except the sheet has already spent
-   a delay getting here. A second one on top is what made opening the add
-   activity sheet feel like it had to be winched up. */
-const formStagger: Variants = {
-  initial: {},
-  animate: { transition: { staggerChildren: 0.028 } },
-};
+
 const listItem: Variants = {
   initial: { opacity: 0, y: 16, scale: 0.98 },
   animate: {
@@ -273,13 +268,16 @@ const makeMenuMotion = (reduced: boolean): Variants => ({
 });
 const menuMotion = makeMenuMotion(false);
 const menuMotionReduced = makeMenuMotion(true);
-const sheetMotion: Variants = {
-  initial: { y: "100%" },
-  animate: {
-    y: 0,
-    transition: { ...sheetSpring, staggerChildren: 0.025, delayChildren: 0.05 },
-  },
-  exit: { y: "100%", transition: { duration: 0.2, ease: exitEasing } },
+/* A sheet animates on plain props rather than a variant label. A label
+   propagates to every motion element underneath it, which is how the contents
+   ended up cascading in behind the panel; with objects nothing is inherited,
+   so the panel is the only thing that moves. One element travelling instead of
+   eight is both lighter to watch and cheaper to composite. */
+const sheetHidden: TargetAndTransition = { y: "100%" };
+const sheetShown: TargetAndTransition = { y: 0, transition: sheetSpring };
+const sheetLeaving: TargetAndTransition = {
+  y: "100%",
+  transition: { duration: 0.22, ease: exitEasing },
 };
 const cardHover = { y: -2, transition: softSpring };
 const cardTap = { scale: 0.985, transition: tapSpring };
@@ -973,17 +971,12 @@ function Dialog({
         aria-modal="true"
         aria-label={title}
         className="sheet"
-        variants={sheetMotion}
-        initial="initial"
-        animate="animate"
-        exit="exit"
+        initial={sheetHidden}
+        animate={sheetShown}
+        exit={sheetLeaving}
       >
-        <motion.span
-          className="sheet-handle"
-          aria-hidden="true"
-          variants={riseClose}
-        />
-        <motion.header variants={riseClose}>
+        <span className="sheet-handle" aria-hidden="true" />
+        <header>
           <motion.button
             aria-label={t("Close dialog")}
             onClick={onClose}
@@ -994,7 +987,7 @@ function Dialog({
             <X size={16} />
           </motion.button>
           <h2>{brand(title)}</h2>
-        </motion.header>
+        </header>
         {children}
       </motion.div>
     </div>
@@ -3271,17 +3264,9 @@ export default function Home() {
                       ["Subscription", "subscription"],
                       ["Help & Settings", "help"],
                     ] as const
-                  ).map(([name, target], i) => (
+                  ).map(([name, target]) => (
                     <motion.button
                       key={name}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 5 }}
-                      transition={{
-                        delay: 0.06 + i * 0.032,
-                        duration: 0.26,
-                        ease: easing,
-                      }}
                       whileHover={{ x: 5, transition: softSpring }}
                       whileTap={{ scale: 0.97, transition: tapSpring }}
                       onClick={() => go(target)}
@@ -3324,7 +3309,6 @@ export default function Home() {
                 {(modal === "addActivity" || modal === "editActivity") && (
                   <motion.form
                     className="add-form activity-form"
-                    variants={formStagger}
                     onSubmit={(e) => {
                       e.preventDefault();
                       const target = ritualOptions.find(
@@ -3380,7 +3364,6 @@ export default function Home() {
                     }}
                   >
                     <motion.input
-                      variants={optionItem}
                       placeholder={t("Activity Name")}
                       aria-label={t("Activity Name")}
                       value={activityName}
@@ -3388,7 +3371,7 @@ export default function Home() {
                       required
                       maxLength={60}
                     />
-                    <motion.div className="select-field" variants={optionItem}>
+                    <motion.div className="select-field">
                       <Dropdown
                         label={t("Category")}
                         value={activityCategory}
@@ -3397,7 +3380,7 @@ export default function Home() {
                       />
                       <ChevronDown size={16} />
                     </motion.div>
-                    <motion.div className="select-field" variants={optionItem}>
+                    <motion.div className="select-field">
                       <Dropdown
                         label={t("Add to your rituals")}
                         value={activityRitual}
@@ -3422,7 +3405,6 @@ export default function Home() {
                       <motion.button
                         type="button"
                         className="delete-ritual"
-                        variants={optionItem}
                         whileHover={{ y: -1, transition: softSpring }}
                         whileTap={{ scale: 0.97, transition: tapSpring }}
                         onClick={() => {
@@ -3449,7 +3431,6 @@ export default function Home() {
                 {modal === "addRitual" && (
                   <motion.form
                     className="add-form ritual-form"
-                    variants={formStagger}
                     onSubmit={(e) => {
                       e.preventDefault();
                       const pending = newActivity.trim();
@@ -3505,7 +3486,6 @@ export default function Home() {
                     }}
                   >
                     <motion.input
-                      variants={optionItem}
                       placeholder={t("Ritual Name")}
                       aria-label={t("Ritual Name")}
                       value={ritualName}
@@ -3513,10 +3493,7 @@ export default function Home() {
                       required
                       maxLength={60}
                     />
-                    <motion.div
-                      className="form-field-label"
-                      variants={optionItem}
-                    >
+                    <motion.div className="form-field-label">
                       {t("Category")}
                       <div className="select-field">
                         <Flower2 size={19} />
@@ -3529,10 +3506,7 @@ export default function Home() {
                         <ChevronDown size={16} />
                       </div>
                     </motion.div>
-                    <motion.div
-                      className="ritual-select-grid"
-                      variants={optionItem}
-                    >
+                    <motion.div className="ritual-select-grid">
                       <div className="form-field-label">
                         {t("Frequency")}
                         <div className="select-field">
@@ -3558,10 +3532,7 @@ export default function Home() {
                         </div>
                       </div>
                     </motion.div>
-                    <motion.div
-                      className="activities-editor"
-                      variants={optionItem}
-                    >
+                    <motion.div className="activities-editor">
                       <span className="form-field-label">{t("Activity")}</span>
                       <div className="activity-chips">
                         <AnimatePresence initial={false} mode="popLayout">
@@ -3622,7 +3593,6 @@ export default function Home() {
                 {modal === "editRitual" && (
                   <motion.form
                     className="edit-ritual-form"
-                    variants={formStagger}
                     onSubmit={(e) => {
                       e.preventDefault();
                       if (
@@ -3656,10 +3626,7 @@ export default function Home() {
                       setToast(t("Your ritual has been updated."));
                     }}
                   >
-                    <motion.label
-                      className="form-field-label"
-                      variants={optionItem}
-                    >
+                    <motion.label className="form-field-label">
                       {t("Ritual Name")}
                       <input
                         value={ritualName}
@@ -3668,10 +3635,7 @@ export default function Home() {
                         required
                       />
                     </motion.label>
-                    <motion.div
-                      className="form-field-label"
-                      variants={optionItem}
-                    >
+                    <motion.div className="form-field-label">
                       {t("Category")}
                       <div className="select-field">
                         <Flower2 size={19} />
@@ -3684,10 +3648,7 @@ export default function Home() {
                         <ChevronDown size={16} />
                       </div>
                     </motion.div>
-                    <motion.div
-                      className="ritual-select-grid"
-                      variants={optionItem}
-                    >
+                    <motion.div className="ritual-select-grid">
                       <div className="form-field-label">
                         {t("Frequency")}
                         <div className="select-field">
@@ -3713,10 +3674,7 @@ export default function Home() {
                         </div>
                       </div>
                     </motion.div>
-                    <motion.div
-                      className="activities-editor"
-                      variants={optionItem}
-                    >
+                    <motion.div className="activities-editor">
                       <span className="form-field-label">
                         {t("Activities")}
                       </span>
@@ -3785,7 +3743,6 @@ export default function Home() {
                     <motion.button
                       type="button"
                       className="delete-ritual"
-                      variants={optionItem}
                       whileHover={{ y: -1, transition: softSpring }}
                       whileTap={{ scale: 0.97, transition: tapSpring }}
                       onClick={() => {
@@ -3806,15 +3763,11 @@ export default function Home() {
                   </motion.form>
                 )}
                 {modal === "photo" && (
-                  <motion.div
-                    className="profile-sheet-actions"
-                    variants={formStagger}
-                  >
+                  <motion.div className="profile-sheet-actions">
                     {profilePhoto ? (
                       <motion.button
                         type="button"
                         className="profile-action danger-action"
-                        variants={optionItem}
                         whileHover={{ y: -2, transition: softSpring }}
                         whileTap={{ scale: 0.98, transition: tapSpring }}
                         onClick={() => {
@@ -3831,7 +3784,6 @@ export default function Home() {
                         <motion.button
                           type="button"
                           className="profile-action"
-                          variants={optionItem}
                           whileHover={{ y: -2, transition: softSpring }}
                           whileTap={{ scale: 0.98, transition: tapSpring }}
                           onClick={() => uploadInput.current?.click()}
@@ -3842,7 +3794,6 @@ export default function Home() {
                         <motion.button
                           type="button"
                           className="profile-action"
-                          variants={optionItem}
                           whileHover={{ y: -2, transition: softSpring }}
                           whileTap={{ scale: 0.98, transition: tapSpring }}
                           onClick={() => cameraInput.current?.click()}
@@ -3878,7 +3829,6 @@ export default function Home() {
                 {modal === "editProfile" && (
                   <motion.form
                     className="profile-edit-form"
-                    variants={formStagger}
                     onSubmit={(event) => {
                       event.preventDefault();
                       setUsername(profileDraft.username.trim());
@@ -3887,10 +3837,7 @@ export default function Home() {
                       setToast(t("Personal information saved."));
                     }}
                   >
-                    <motion.label
-                      className="form-field-label"
-                      variants={optionItem}
-                    >
+                    <motion.label className="form-field-label">
                       {t("Username")}
                       <input
                         value={profileDraft.username}
@@ -3904,10 +3851,7 @@ export default function Home() {
                         maxLength={40}
                       />
                     </motion.label>
-                    <motion.label
-                      className="form-field-label"
-                      variants={optionItem}
-                    >
+                    <motion.label className="form-field-label">
                       {t("Email")}
                       <input
                         type="email"
@@ -3926,11 +3870,8 @@ export default function Home() {
                   </motion.form>
                 )}
                 {modal === "subscribe" && (
-                  <motion.div className="plan-sheet" variants={formStagger}>
-                    <motion.div
-                      className="plan-sheet-summary"
-                      variants={optionItem}
-                    >
+                  <motion.div className="plan-sheet">
+                    <motion.div className="plan-sheet-summary">
                       <strong>{t(chosenPlan.name)}</strong>
                       <b>{rupiah(chosenPlan.price)}</b>
                       <small>
@@ -3947,7 +3888,7 @@ export default function Home() {
                             )}
                       </small>
                     </motion.div>
-                    <motion.p className="plan-sheet-note" variants={optionItem}>
+                    <motion.p className="plan-sheet-note">
                       {activePlan
                         ? t(
                             "Your {name} plan will be replaced and the new period starts today.",
@@ -3963,7 +3904,6 @@ export default function Home() {
                     <motion.button
                       type="button"
                       className="plan-sheet-dismiss"
-                      variants={optionItem}
                       whileHover={{ y: -1, transition: softSpring }}
                       whileTap={{ scale: 0.97, transition: tapSpring }}
                       onClick={closeModal}
@@ -3985,13 +3925,9 @@ export default function Home() {
                         ),
                       )}
                     </p>
-                    <motion.div
-                      className="confirmation-actions"
-                      variants={formStagger}
-                    >
+                    <motion.div className="confirmation-actions">
                       <motion.button
                         type="button"
-                        variants={optionItem}
                         whileHover={{ y: -2, transition: softSpring }}
                         whileTap={{ scale: 0.97, transition: tapSpring }}
                         onClick={closeModal}
@@ -4001,7 +3937,6 @@ export default function Home() {
                       <motion.button
                         type="button"
                         className="confirm-signout"
-                        variants={optionItem}
                         whileHover={{ y: -2, transition: softSpring }}
                         whileTap={{ scale: 0.97, transition: tapSpring }}
                         onClick={() => {
@@ -4022,13 +3957,9 @@ export default function Home() {
                 {modal === "signOut" && (
                   <div className="confirmation-content">
                     <p>{t("Are you sure you want to sign out?")}</p>
-                    <motion.div
-                      className="confirmation-actions"
-                      variants={formStagger}
-                    >
+                    <motion.div className="confirmation-actions">
                       <motion.button
                         type="button"
-                        variants={optionItem}
                         whileHover={{ y: -2, transition: softSpring }}
                         whileTap={{ scale: 0.97, transition: tapSpring }}
                         onClick={closeModal}
@@ -4038,7 +3969,6 @@ export default function Home() {
                       <motion.button
                         type="button"
                         className="confirm-signout"
-                        variants={optionItem}
                         whileHover={{ y: -2, transition: softSpring }}
                         whileTap={{ scale: 0.97, transition: tapSpring }}
                         onClick={() => {
@@ -4103,17 +4033,12 @@ export default function Home() {
                   role="dialog"
                   aria-modal="true"
                   aria-labelledby="completion-title"
-                  variants={sheetMotion}
-                  initial="initial"
-                  animate="animate"
-                  exit="exit"
+                  initial={sheetHidden}
+                  animate={sheetShown}
+                  exit={sheetLeaving}
                 >
-                  <motion.h2 id="completion-title" variants={riseClose}>
-                    {t("You’re all done")}
-                  </motion.h2>
-                  <motion.p variants={riseClose}>
-                    {t("Today looked good on you")}
-                  </motion.p>
+                  <h2 id="completion-title">{t("You’re all done")}</h2>
+                  <p>{t("Today looked good on you")}</p>
                   <Flower
                     name="lotus-bouquet"
                     className="completion-flower"
@@ -4137,17 +4062,11 @@ export default function Home() {
               <motion.div
                 role="status"
                 className="toast"
-                initial={{ opacity: 0, y: 16, scale: 0.97 }}
-                animate={{
-                  opacity: 1,
-                  y: 0,
-                  scale: 1,
-                  transition: softSpring,
-                }}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0, transition: softSpring }}
                 exit={{
                   opacity: 0,
                   y: 10,
-                  scale: 0.98,
                   transition: { duration: 0.18, ease: exitEasing },
                 }}
               >
