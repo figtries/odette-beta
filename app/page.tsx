@@ -113,13 +113,14 @@ const exitEasing = [0.55, 0, 0.75, 0] as const;
    stretch creeping, which reads as weight rather than calm. */
 const softSpring: Transition = {
   type: "spring",
-  visualDuration: 0.42,
-  bounce: 0.16,
+  visualDuration: 0.34,
+  bounce: 0.14,
 };
-/* Barely any bounce, so a sheet glides to the edge instead of overshooting. */
+/* The sheet sits on `bottom: 0`, so an overshoot lifts it and opens a gap
+   underneath. Lightness has to come from the pace, not from a bounce. */
 const sheetSpring: Transition = {
   type: "spring",
-  visualDuration: 0.46,
+  visualDuration: 0.34,
   bounce: 0.06,
 };
 const tapSpring: Transition = {
@@ -166,8 +167,8 @@ const rise: Variants = {
   animate: { opacity: 1, y: 0, transition: { duration: 0.62, ease: easing } },
 };
 const riseClose: Variants = {
-  initial: { opacity: 0, y: 12 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.5, ease: easing } },
+  initial: { opacity: 0, y: 10 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.34, ease: easing } },
 };
 const fadeIn: Variants = {
   initial: { opacity: 0 },
@@ -194,9 +195,9 @@ const listItem: Variants = {
   },
 };
 const optionItem: Variants = {
-  initial: { opacity: 0, y: 14 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.42, ease: easing } },
-  exit: { opacity: 0, y: -6, transition: { duration: 0.2, ease: exitEasing } },
+  initial: { opacity: 0, y: 11 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.3, ease: easing } },
+  exit: { opacity: 0, y: -6, transition: { duration: 0.16, ease: exitEasing } },
 };
 const calendarGrid: Variants = {
   initial: { opacity: 0 },
@@ -269,9 +270,9 @@ const sheetMotion: Variants = {
   initial: { y: "100%" },
   animate: {
     y: 0,
-    transition: { ...sheetSpring, staggerChildren: 0.05, delayChildren: 0.13 },
+    transition: { ...sheetSpring, staggerChildren: 0.035, delayChildren: 0.06 },
   },
-  exit: { y: "100%", transition: { duration: 0.3, ease: exitEasing } },
+  exit: { y: "100%", transition: { duration: 0.2, ease: exitEasing } },
 };
 const cardHover = { y: -2, transition: softSpring };
 const cardTap = { scale: 0.985, transition: tapSpring };
@@ -877,16 +878,16 @@ function Disclosure({
               height: "auto",
               opacity: 1,
               transition: {
-                height: { duration: 0.34, ease: easing },
-                opacity: { duration: 0.26, ease: easing, delay: 0.07 },
+                height: { duration: 0.26, ease: easing },
+                opacity: { duration: 0.2, ease: easing, delay: 0.05 },
               },
             }}
             exit={{
               height: 0,
               opacity: 0,
               transition: {
-                height: { duration: 0.26, ease: exitEasing },
-                opacity: { duration: 0.15 },
+                height: { duration: 0.2, ease: exitEasing },
+                opacity: { duration: 0.12 },
               },
             }}
           >
@@ -956,8 +957,8 @@ function Dialog({
         className="scrim"
         onClick={onClose}
         initial={{ opacity: 0 }}
-        animate={{ opacity: 1, transition: { duration: 0.34, ease: easing } }}
-        exit={{ opacity: 0, transition: { duration: 0.26, ease: exitEasing } }}
+        animate={{ opacity: 1, transition: { duration: 0.24, ease: easing } }}
+        exit={{ opacity: 0, transition: { duration: 0.16, ease: exitEasing } }}
       />
       <motion.div
         ref={ref}
@@ -3237,11 +3238,11 @@ export default function Home() {
                   initial={{ opacity: 0 }}
                   animate={{
                     opacity: 1,
-                    transition: { duration: 0.34, ease: easing },
+                    transition: { duration: 0.24, ease: easing },
                   }}
                   exit={{
                     opacity: 0,
-                    transition: { duration: 0.26, ease: exitEasing },
+                    transition: { duration: 0.16, ease: exitEasing },
                   }}
                 />
                 <motion.div
@@ -3251,7 +3252,7 @@ export default function Home() {
                   initial={{ clipPath: "inset(0% 0% 100% 100% round 22px)" }}
                   animate={{ clipPath: "inset(0% 0% 0% 0% round 22px)" }}
                   exit={{ clipPath: "inset(0% 0% 100% 100% round 22px)" }}
-                  transition={{ duration: 0.5, ease: easing }}
+                  transition={{ duration: 0.36, ease: easing }}
                   style={{ transformOrigin: "top right" }}
                 >
                   {(
@@ -3270,8 +3271,8 @@ export default function Home() {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: 5 }}
                       transition={{
-                        delay: 0.11 + i * 0.048,
-                        duration: 0.36,
+                        delay: 0.06 + i * 0.032,
+                        duration: 0.26,
                         ease: easing,
                       }}
                       whileHover={{ x: 5, transition: softSpring }}
@@ -4083,11 +4084,11 @@ export default function Home() {
                   initial={{ opacity: 0 }}
                   animate={{
                     opacity: 1,
-                    transition: { duration: 0.34, ease: easing },
+                    transition: { duration: 0.24, ease: easing },
                   }}
                   exit={{
                     opacity: 0,
-                    transition: { duration: 0.26, ease: exitEasing },
+                    transition: { duration: 0.16, ease: exitEasing },
                   }}
                 />
                 <motion.section
@@ -4129,7 +4130,7 @@ export default function Home() {
               <motion.div
                 role="status"
                 className="toast"
-                initial={{ opacity: 0, y: 24, scale: 0.95 }}
+                initial={{ opacity: 0, y: 16, scale: 0.97 }}
                 animate={{
                   opacity: 1,
                   y: 0,
@@ -4138,9 +4139,9 @@ export default function Home() {
                 }}
                 exit={{
                   opacity: 0,
-                  y: 14,
-                  scale: 0.97,
-                  transition: { duration: 0.26, ease: exitEasing },
+                  y: 10,
+                  scale: 0.98,
+                  transition: { duration: 0.18, ease: exitEasing },
                 }}
               >
                 {brand(toast)}
