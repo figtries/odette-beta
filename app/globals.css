@@ -2180,17 +2180,17 @@ input[type="checkbox"] {
 .completion-flower {
   width: min(185px, 56vw);
   min-height: 0;
-  max-height: 255px;
-  flex: 0 1 auto;
+  max-height: none;
+  flex: 1 1 auto;
   align-self: center;
-  margin: 18px auto 14px;
+  margin: 18px auto 0;
   object-fit: contain;
   object-position: center bottom;
 }
 .completion-sheet .primary {
   position: relative;
   z-index: 1;
-  margin-top: auto;
+  margin-top: 0;
   min-height: 56px;
   font-size: 16px;
 }
