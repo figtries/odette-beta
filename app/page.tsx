@@ -168,7 +168,7 @@ const rise: Variants = {
 };
 const riseClose: Variants = {
   initial: { opacity: 0, y: 10 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.34, ease: easing } },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.3, ease: easing } },
 };
 const fadeIn: Variants = {
   initial: { opacity: 0 },
@@ -178,6 +178,13 @@ const fadeIn: Variants = {
 const listStagger: Variants = {
   initial: {},
   animate: { transition: { staggerChildren: 0.05, delayChildren: 0.04 } },
+};
+/* The same idea for a form inside a sheet, except the sheet has already spent
+   a delay getting here. A second one on top is what made opening the add
+   activity sheet feel like it had to be winched up. */
+const formStagger: Variants = {
+  initial: {},
+  animate: { transition: { staggerChildren: 0.028 } },
 };
 const listItem: Variants = {
   initial: { opacity: 0, y: 16, scale: 0.98 },
@@ -196,7 +203,7 @@ const listItem: Variants = {
 };
 const optionItem: Variants = {
   initial: { opacity: 0, y: 11 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.3, ease: easing } },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.26, ease: easing } },
   exit: { opacity: 0, y: -6, transition: { duration: 0.16, ease: exitEasing } },
 };
 const calendarGrid: Variants = {
@@ -270,7 +277,7 @@ const sheetMotion: Variants = {
   initial: { y: "100%" },
   animate: {
     y: 0,
-    transition: { ...sheetSpring, staggerChildren: 0.035, delayChildren: 0.06 },
+    transition: { ...sheetSpring, staggerChildren: 0.025, delayChildren: 0.05 },
   },
   exit: { y: "100%", transition: { duration: 0.2, ease: exitEasing } },
 };
@@ -539,7 +546,7 @@ function Button({
       className={`primary ${className}`}
       onClick={onClick}
       disabled={disabled}
-      variants={rise}
+      variants={riseClose}
       whileHover={disabled ? undefined : { y: -2, transition: softSpring }}
       whileTap={{ scale: disabled ? 1 : 0.972, transition: tapSpring }}
     >
@@ -3317,7 +3324,7 @@ export default function Home() {
                 {(modal === "addActivity" || modal === "editActivity") && (
                   <motion.form
                     className="add-form activity-form"
-                    variants={listStagger}
+                    variants={formStagger}
                     onSubmit={(e) => {
                       e.preventDefault();
                       const target = ritualOptions.find(
@@ -3442,7 +3449,7 @@ export default function Home() {
                 {modal === "addRitual" && (
                   <motion.form
                     className="add-form ritual-form"
-                    variants={listStagger}
+                    variants={formStagger}
                     onSubmit={(e) => {
                       e.preventDefault();
                       const pending = newActivity.trim();
@@ -3615,7 +3622,7 @@ export default function Home() {
                 {modal === "editRitual" && (
                   <motion.form
                     className="edit-ritual-form"
-                    variants={listStagger}
+                    variants={formStagger}
                     onSubmit={(e) => {
                       e.preventDefault();
                       if (
@@ -3801,7 +3808,7 @@ export default function Home() {
                 {modal === "photo" && (
                   <motion.div
                     className="profile-sheet-actions"
-                    variants={listStagger}
+                    variants={formStagger}
                   >
                     {profilePhoto ? (
                       <motion.button
@@ -3871,7 +3878,7 @@ export default function Home() {
                 {modal === "editProfile" && (
                   <motion.form
                     className="profile-edit-form"
-                    variants={listStagger}
+                    variants={formStagger}
                     onSubmit={(event) => {
                       event.preventDefault();
                       setUsername(profileDraft.username.trim());
@@ -3919,7 +3926,7 @@ export default function Home() {
                   </motion.form>
                 )}
                 {modal === "subscribe" && (
-                  <motion.div className="plan-sheet" variants={listStagger}>
+                  <motion.div className="plan-sheet" variants={formStagger}>
                     <motion.div
                       className="plan-sheet-summary"
                       variants={optionItem}
@@ -3980,7 +3987,7 @@ export default function Home() {
                     </p>
                     <motion.div
                       className="confirmation-actions"
-                      variants={listStagger}
+                      variants={formStagger}
                     >
                       <motion.button
                         type="button"
@@ -4017,7 +4024,7 @@ export default function Home() {
                     <p>{t("Are you sure you want to sign out?")}</p>
                     <motion.div
                       className="confirmation-actions"
-                      variants={listStagger}
+                      variants={formStagger}
                     >
                       <motion.button
                         type="button"
