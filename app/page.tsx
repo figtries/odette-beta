@@ -102,188 +102,120 @@ type ProgressTab = "habits" | "rituals";
 type ProgressPeriod = "weekly" | "monthly";
 type ProgressView = "calendar" | "report";
 type Routine = Habit["routine"];
-/* Motion vocabulary. Everything in Odette leans on the same few curves so the
-   whole app feels like one hand drew it: long ease-out entrances, short
-   ease-in exits, and springs that settle instead of bouncing. */
-const easing = [0.22, 1, 0.36, 1] as const;
-const exitEasing = [0.55, 0, 0.75, 0] as const;
-/* `visualDuration` + `bounce` state how long a spring should *look* like it
-   takes. Softness lives here, in the timing; smoothness lives in which
-   properties are animated. These are deliberately unhurried — the old
-   stiffness/damping pairs were slightly overdamped, so they spent their last
-   stretch creeping, which reads as weight rather than calm. */
+/* Static by default. Use short tweens for feedback and state changes. */
+const easing = [0.2, 0, 0, 1] as const;
+const exitEasing = [0.4, 0, 1, 1] as const;
 const softSpring: Transition = {
-  type: "spring",
-  visualDuration: 0.34,
-  bounce: 0.14,
+  type: "tween",
+  duration: 0.18,
+  ease: easing,
 };
-/* Overlays accelerate gently and settle without a spring overshoot. Keep the
-   hamburger's CSS ring on this same timing. */
 const overlayEnter: Transition = {
   type: "tween",
-  duration: 0.5,
-  ease: [0.25, 0.1, 0.25, 1],
+  duration: 0.22,
+  ease: easing,
 };
 const overlayExit: Transition = {
   type: "tween",
-  duration: 0.34,
-  ease: [0.4, 0, 0.6, 1],
+  duration: 0.18,
+  ease: exitEasing,
 };
-/* A sheet crosses most of the screen, so it cannot afford the gentle start
-   `overlayEnter` gives the small stuff. `[0.25, 0.1, 0.25, 1]` is plain CSS
-   `ease`: slow at both ends, which over that distance reads as the panel
-   struggling to lift — heavy rather than calm, and easy to mistake for dropped
-   frames. This curve leaves at once and spends its length arriving instead, and
-   the sheet goes back down faster than it came up. */
 const sheetEnter: Transition = {
   type: "tween",
-  duration: 0.42,
-  ease: [0.32, 0.72, 0, 1],
+  duration: 0.26,
+  ease: easing,
 };
 const sheetExit: Transition = {
   type: "tween",
-  duration: 0.26,
-  ease: [0.4, 0, 1, 1],
+  duration: 0.22,
+  ease: exitEasing,
 };
 const tapSpring: Transition = {
-  type: "spring",
-  stiffness: 480,
-  damping: 34,
-  mass: 0.6,
+  type: "tween",
+  duration: 0.12,
+  ease: easing,
 };
 const popSpring: Transition = {
-  type: "spring",
-  stiffness: 520,
-  damping: 26,
-  mass: 0.7,
+  type: "tween",
+  duration: 0.18,
+  ease: easing,
 };
-/* Screens drift up and stagger their own children. Deliberately no
-   `filter: blur()`: an animating blur forces the browser to re-rasterise the
-   whole screen every frame, while opacity and transform stay on the
-   compositor. That one property carried most of the weight. */
 const screenMotion: Variants = {
-  initial: { opacity: 0, y: 18 },
+  initial: { opacity: 0, y: 6 },
   animate: {
     opacity: 1,
     y: 0,
-    transition: {
-      duration: 0.55,
-      ease: easing,
-      staggerChildren: 0.055,
-      delayChildren: 0.05,
-    },
+    transition: { duration: 0.15, ease: easing },
   },
   exit: {
     opacity: 0,
-    y: -12,
-    transition: { duration: 0.26, ease: exitEasing },
+    y: -4,
+    transition: { duration: 0.1, ease: exitEasing },
   },
 };
 const screenMotionFlat: Variants = {
-  initial: { opacity: 0 },
-  animate: { opacity: 1, transition: { duration: 0.24, ease: easing } },
-  exit: { opacity: 0, transition: { duration: 0.16, ease: exitEasing } },
+  initial: { opacity: 1 },
+  animate: { opacity: 1, transition: { duration: 0 } },
+  exit: { opacity: 1, transition: { duration: 0 } },
 };
-const rise: Variants = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.62, ease: easing } },
-};
-const riseClose: Variants = {
-  initial: { opacity: 0, y: 10 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.3, ease: easing } },
-};
-const fadeIn: Variants = {
-  initial: { opacity: 0 },
-  animate: { opacity: 1, transition: { duration: 0.75, ease: easing } },
-};
-/* Lists carry their own stagger so a newly added card still cascades in. */
-const listStagger: Variants = {
-  initial: {},
-  animate: { transition: { staggerChildren: 0.05, delayChildren: 0.04 } },
-};
-
+const staticVariant: Variants = { initial: {}, animate: {} };
+const rise = staticVariant;
+const riseClose = staticVariant;
+const fadeIn = staticVariant;
+const listStagger = staticVariant;
 const listItem: Variants = {
-  initial: { opacity: 0, y: 16, scale: 0.98 },
-  animate: {
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    transition: { duration: 0.5, ease: easing },
-  },
+  initial: {},
+  animate: {},
   exit: {
     opacity: 0,
-    y: -8,
-    scale: 0.97,
-    transition: { duration: 0.24, ease: exitEasing },
+    transition: { duration: 0.15, ease: exitEasing },
   },
 };
 const optionItem: Variants = {
-  initial: { opacity: 0, y: 11 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.26, ease: easing } },
-  exit: { opacity: 0, y: -6, transition: { duration: 0.16, ease: exitEasing } },
+  initial: {},
+  animate: {},
+  exit: { opacity: 0, transition: { duration: 0.15, ease: exitEasing } },
 };
 const calendarGrid: Variants = {
   initial: { opacity: 0 },
-  animate: { opacity: 1, transition: { staggerChildren: 0.012 } },
+  animate: { opacity: 1, transition: { duration: 0.18, ease: easing } },
   exit: { opacity: 0, transition: { duration: 0.16, ease: exitEasing } },
 };
-const calendarDay: Variants = {
-  initial: { opacity: 0, scale: 0.72 },
-  animate: {
-    opacity: 1,
-    scale: 1,
-    transition: { duration: 0.34, ease: easing },
-  },
-};
+const calendarDay = staticVariant;
 const swapUp: Variants = {
-  initial: { opacity: 0, y: 7 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.26, ease: easing } },
-  exit: { opacity: 0, y: -7, transition: { duration: 0.18, ease: exitEasing } },
+  initial: { opacity: 0 },
+  animate: { opacity: 1, transition: { duration: 0.16, ease: easing } },
+  exit: { opacity: 0, transition: { duration: 0.12, ease: exitEasing } },
 };
 const chipItem: Variants = {
-  initial: { opacity: 0, scale: 0.7, y: 4 },
-  animate: { opacity: 1, scale: 1, y: 0, transition: popSpring },
-  exit: {
-    opacity: 0,
-    scale: 0.7,
-    transition: { duration: 0.16, ease: exitEasing },
-  },
+  initial: {},
+  animate: {},
+  exit: { opacity: 0, transition: { duration: 0.15, ease: exitEasing } },
 };
-const ddOption: Variants = {
-  initial: { opacity: 0, y: -5 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.24, ease: easing } },
-};
-/* `staggerChildren` only reaches children through a named variant, so any menu
-   that cascades its items has to drive itself by label, not by object. */
+const ddOption = staticVariant;
 const emojiPicker: Variants = {
-  initial: { opacity: 0, y: -8, scale: 0.97 },
+  initial: { opacity: 0, y: -4 },
   animate: {
     opacity: 1,
     y: 0,
-    scale: 1,
-    transition: { ...softSpring, staggerChildren: 0.012 },
+    transition: overlayEnter,
   },
   exit: {
     opacity: 0,
-    y: -8,
-    scale: 0.97,
-    transition: { duration: 0.2, ease: exitEasing },
+    y: -4,
+    transition: overlayExit,
   },
 };
 const makeMenuMotion = (reduced: boolean): Variants => ({
-  initial: reduced ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: -8 },
+  initial: reduced ? { opacity: 0 } : { opacity: 0, y: -4 },
   animate: {
     opacity: 1,
-    scale: 1,
     y: 0,
-    transition: reduced
-      ? { duration: 0 }
-      : { ...softSpring, staggerChildren: 0.03 },
+    transition: reduced ? { duration: 0 } : overlayEnter,
   },
   exit: {
     opacity: 0,
-    scale: 0.97,
-    y: -6,
+    y: -4,
     transition: { duration: reduced ? 0 : 0.16, ease: exitEasing },
   },
 });
@@ -315,9 +247,9 @@ const sheetStill: TargetAndTransition = {
   ...sheetShown,
   transition: { duration: 0 },
 };
-const cardHover = { y: -2, transition: softSpring };
+const cardHover = {};
 const cardTap = { scale: 0.985, transition: tapSpring };
-const rowHover = { x: 2, transition: softSpring };
+const rowHover = {};
 const rowTap = { scale: 0.99, transition: tapSpring };
 const focusOptions = [
   "Mental Wellness",
@@ -473,61 +405,26 @@ function formatDailyDate(date: Date, locale: string) {
 function Flower({
   name,
   className = "",
-  float = false,
-  delay = 0,
 }: {
   name: string;
   className?: string;
-  float?: boolean;
-  delay?: number;
 }) {
-  const reduced = useReducedMotion();
   const src = `/images/${name}.webp`;
-  if (reduced)
-    return (
-      <img
-        draggable={false}
-        src={src}
-        alt=""
-        aria-hidden="true"
-        className={className}
-      />
-    );
-  /* Transforms only: the background blooms set their own opacity in CSS and an
-     inline one from Motion would wash them out to full strength. */
   return (
-    <motion.img
+    <img
       draggable={false}
       src={src}
       alt=""
       aria-hidden="true"
-      /* A floating bloom needs `is-floating`. Its drift is written to inline
-         styles from JavaScript, and the browser only promotes an element by
-         itself when it recognises the animation as its own, so without the hint
-         these images are re-painted on every frame of a loop that never ends —
-         the largest of them from a 1139x1631 source. That repaint is the tax
-         everything else pays: a sheet sliding up is composited, but it still has
-         to wait behind this. */
-      className={float ? `${className} is-floating`.trim() : className}
-      initial={{ scale: 0.93 }}
-      animate={{
-        scale: 1,
-        y: float ? [0, -7, 0] : 0,
-        rotate: float ? [0, 0.7, 0, -0.7, 0] : 0,
-      }}
-      transition={{
-        scale: { duration: 1.2, ease: easing, delay },
-        y: { duration: 8.5, repeat: Infinity, ease: "easeInOut", delay },
-        rotate: { duration: 13, repeat: Infinity, ease: "easeInOut", delay },
-      }}
+      className={className}
     />
   );
 }
-/* Percentages and streaks count up instead of popping to their final value. */
-function Counter({ value, from = 0 }: { value: number; from?: number }) {
+/* Update numbers only when their value changes, without a count-up on mount. */
+function Counter({ value }: { value: number }) {
   const reduced = useReducedMotion();
-  const [shown, setShown] = useState(reduced ? value : from);
-  const current = useRef(reduced ? value : from);
+  const [shown, setShown] = useState(value);
+  const current = useRef(value);
   useEffect(() => {
     if (reduced) {
       current.current = value;
@@ -535,7 +432,7 @@ function Counter({ value, from = 0 }: { value: number; from?: number }) {
       return;
     }
     const controls = animateValue(current.current, value, {
-      duration: 1.1,
+      duration: 0.3,
       ease: easing,
       onUpdate: (next) => {
         current.current = next;
@@ -588,8 +485,8 @@ function Button({
       onClick={onClick}
       disabled={disabled}
       variants={riseClose}
-      whileHover={disabled ? undefined : { y: -2, transition: softSpring }}
-      whileTap={{ scale: disabled ? 1 : 0.972, transition: tapSpring }}
+      whileHover={disabled ? undefined : { y: -1, transition: softSpring }}
+      whileTap={{ scale: disabled ? 1 : 0.985, transition: tapSpring }}
     >
       {children}
     </motion.button>
@@ -599,17 +496,17 @@ function Dot({ checked, tick = false }: { checked: boolean; tick?: boolean }) {
   return (
     <motion.span
       className={`dot ${checked ? "checked" : ""}`}
-      animate={{ scale: checked ? [1, 0.82, 1.1, 1] : 1 }}
-      transition={{ duration: 0.45, ease: easing, times: [0, 0.22, 0.6, 1] }}
+      animate={{ scale: checked ? [1, 1.06, 1] : 1 }}
+      transition={{ duration: 0.18, ease: easing }}
     >
       <AnimatePresence initial={false}>
         {checked && tick && (
           <motion.span
             key="tick"
             className="dot-tick"
-            initial={{ scale: 0, opacity: 0, rotate: -25 }}
-            animate={{ scale: 1, opacity: 1, rotate: 0 }}
-            exit={{ scale: 0, opacity: 0, rotate: 20 }}
+            initial={{ scale: 0.85, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.85, opacity: 0 }}
             transition={popSpring}
           >
             <Check size={12} strokeWidth={3} />
@@ -631,9 +528,9 @@ function Bar({ value }: { value: number }) {
       aria-valuemax={100}
     >
       <motion.div
-        initial={{ width: 0 }}
+        initial={false}
         animate={{ width: `${value}%` }}
-        transition={{ duration: 1.2, ease: easing, delay: 0.1 }}
+        transition={{ duration: 0.3, ease: easing }}
       />
     </div>
   );
@@ -663,32 +560,21 @@ function Ring({ value }: { value: number }) {
             cx="70"
             cy="70"
             r="61"
-            initial={{
-              pathLength: reduced ? value / 100 : 0,
-              rotate: reduced ? 0 : -90,
-            }}
-            animate={{ pathLength: value / 100, rotate: 0 }}
-            transition={{ duration: reduced ? 0 : 1.4, ease: easing }}
+            initial={false}
+            animate={{ pathLength: value / 100 }}
+            transition={{ duration: reduced ? 0 : 0.3, ease: easing }}
           />
         </svg>
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.7, ease: easing, delay: 0.2 }}
-        >
+        <div>
           <strong>
             <Counter value={value} />%
           </strong>
           <span>{t("DONE")}</span>
-        </motion.div>
+        </div>
       </div>
-      <motion.p
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: easing, delay: 0.45 }}
-      >
+      <p>
         {t(value === 100 ? "Beautifully done!" : "Good day!")}
-      </motion.p>
+      </p>
     </motion.div>
   );
 }
@@ -862,8 +748,8 @@ function Dropdown({
                       {option.value === value && !option.disabled && (
                         <motion.span
                           className="dd-check"
-                          initial={{ scale: 0, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
                           transition={popSpring}
                         >
                           <Check size={19} aria-hidden="true" />
@@ -1031,8 +917,8 @@ function Dialog({
             aria-label={t("Close dialog")}
             onClick={onClose}
             className="circle-button"
-            whileHover={{ rotate: 90, transition: softSpring }}
-            whileTap={{ scale: 0.88, transition: tapSpring }}
+            whileHover={{ scale: 1.03, transition: softSpring }}
+            whileTap={{ scale: 0.97, transition: tapSpring }}
           >
             <X size={16} />
           </motion.button>
@@ -1384,7 +1270,7 @@ export default function Home() {
         className="daily-habit-toggle"
         disabled={isHistoricalDay}
         whileTap={
-          isHistoricalDay ? undefined : { scale: 0.88, transition: tapSpring }
+          isHistoricalDay ? undefined : { scale: 0.97, transition: tapSpring }
         }
         onClick={() => setDraft((items) => toggleHabit(items, habit.id))}
         aria-label={`${habit.done ? "Uncheck" : "Complete"} ${habit.name}`}
@@ -1652,19 +1538,17 @@ export default function Home() {
   return (
     <MotionConfig
       reducedMotion="user"
-      transition={{ duration: 0.45, ease: easing }}
+      transition={{ duration: 0.18, ease: easing }}
     >
       <I18nContext.Provider value={t}>
         <main className={`app screen-${screen}`}>
           {appShell && (
             <>
-              <Flower name="lotus-leaf-stem" className="today-flower" float />
+              <Flower name="lotus-leaf-stem" className="today-flower" />
               <motion.nav
                 className="topbar"
                 aria-label={t("Page navigation")}
-                initial={{ opacity: 0, y: -14 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.65, ease: easing }}
+                initial={false}
               >
                 <AnimatePresence mode="wait" initial={false}>
                   {screen !== "today" ? (
@@ -1676,12 +1560,12 @@ export default function Home() {
                           : "Back to Today",
                       )}
                       className="back-button"
-                      initial={{ opacity: 0, x: -12, scale: 0.8 }}
-                      animate={{ opacity: 1, x: 0, scale: 1 }}
-                      exit={{ opacity: 0, x: -12, scale: 0.8 }}
-                      transition={{ duration: 0.26, ease: easing }}
-                      whileHover={{ x: -3, transition: softSpring }}
-                      whileTap={{ scale: 0.86, transition: tapSpring }}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.16, ease: easing }}
+                      whileHover={{ x: -1, transition: softSpring }}
+                      whileTap={{ scale: 0.96, transition: tapSpring }}
                       onClick={() => {
                         if (
                           screen === "progress" &&
@@ -1769,7 +1653,6 @@ export default function Home() {
                       <Flower
                         name="12"
                         className="welcome-complete"
-                        delay={0.15}
                       />
                     </div>
                     <Button onClick={() => go("signup")}>
@@ -1803,12 +1686,12 @@ export default function Home() {
                   aria-label={t("Back to welcome")}
                   onClick={() => go("welcome")}
                   variants={rise}
-                  whileHover={{ x: -3, transition: softSpring }}
-                  whileTap={{ scale: 0.86, transition: tapSpring }}
+                  whileHover={{ x: -1, transition: softSpring }}
+                  whileTap={{ scale: 0.97, transition: tapSpring }}
                 >
                   <ChevronLeft size={22} />
                 </motion.button>
-                <Flower name="lotus-bud" className="auth-bud" float />
+                <Flower name="lotus-bud" className="auth-bud" />
                 <motion.h1 variants={rise}>
                   {t(screen === "signup" ? "Create an account" : "Log in")}
                 </motion.h1>
@@ -1902,7 +1785,6 @@ export default function Home() {
                         : "lotus-leaf-stem"
                   }
                   className="onboard-flower"
-                  float
                 />
                 <motion.p className="step" variants={rise}>
                   {t("Step {n} of 3", {
@@ -1948,16 +1830,16 @@ export default function Home() {
                           className="emoji-trigger"
                           aria-label={t("Choose profile emoji")}
                           aria-expanded={emojiPickerOpen}
-                          whileHover={{ scale: 1.08, transition: softSpring }}
-                          whileTap={{ scale: 0.9, transition: tapSpring }}
+                          whileHover={{ scale: 1.03, transition: softSpring }}
+                          whileTap={{ scale: 0.97, transition: tapSpring }}
                           onClick={() => setEmojiPickerOpen((open) => !open)}
                         >
                           <AnimatePresence mode="wait" initial={false}>
                             <motion.span
                               key={nicknameEmoji || "placeholder"}
-                              initial={{ opacity: 0, scale: 0.5, y: 4 }}
-                              animate={{ opacity: 1, scale: 1, y: 0 }}
-                              exit={{ opacity: 0, scale: 0.5, y: -4 }}
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              exit={{ opacity: 0 }}
                               transition={popSpring}
                               className="emoji-trigger-face"
                             >
@@ -1991,11 +1873,11 @@ export default function Home() {
                                 }
                                 variants={ddOption}
                                 whileHover={{
-                                  scale: 1.22,
+                                  scale: 1.04,
                                   transition: softSpring,
                                 }}
                                 whileTap={{
-                                  scale: 0.88,
+                                  scale: 0.96,
                                   transition: tapSpring,
                                 }}
                                 onClick={() => {
@@ -2100,8 +1982,6 @@ export default function Home() {
                 <Flower
                   name="lotus-bouquet"
                   className="ready-bouquet"
-                  float
-                  delay={0.2}
                 />
                 <Button
                   onClick={() => {
@@ -2160,7 +2040,7 @@ export default function Home() {
                     <strong>
                       <Counter value={percent} />%
                     </strong>
-                    <Flower name="lotus-bloom" float delay={0.2} />
+                    <Flower name="lotus-bloom" />
                   </div>
                   <Bar value={percent} />
                   <div className="streak">
@@ -2184,9 +2064,6 @@ export default function Home() {
                   </div>
                   <motion.span
                     className="see-detail"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.6, ease: easing, delay: 0.5 }}
                   >
                     {t("See detail")} <ChevronRight size={13} />
                   </motion.span>
@@ -2304,7 +2181,7 @@ export default function Home() {
                           layout="position"
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
-                          transition={{ duration: 0.4, ease: easing }}
+                          transition={{ duration: 0.16, ease: easing }}
                         >
                           {done
                             ? t("Your first small step is waiting.")
@@ -2460,7 +2337,7 @@ export default function Home() {
                           <Counter value={progressReport.overall} />%
                         </strong>
                         <small>{t(progressReport.periodLabel)}</small>
-                        <Flower name="lotus-blossoms" float delay={0.3} />
+                        <Flower name="lotus-blossoms" />
                       </motion.article>
                       <motion.article
                         className="card mini-stat"
@@ -2500,9 +2377,6 @@ export default function Home() {
                         <div>
                           <motion.span
                             className="habit-icon"
-                            initial={{ scale: 0.6, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            transition={{ ...popSpring, delay: 0.15 }}
                           >
                             {s.icon}
                           </motion.span>
@@ -2514,9 +2388,6 @@ export default function Home() {
                           </p>
                           <motion.span
                             className="percentage-bubble"
-                            initial={{ scale: 0.7, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            transition={{ ...popSpring, delay: 0.25 }}
                           >
                             <Counter value={s.value} />%
                           </motion.span>
@@ -2539,7 +2410,7 @@ export default function Home() {
                             ),
                           )}
                         </p>
-                        <Flower name="lotus-blue-stem" float delay={0.4} />
+                        <Flower name="lotus-blue-stem" />
                       </motion.div>
                     )}
                   </>
@@ -2656,8 +2527,8 @@ export default function Home() {
                     <motion.button
                       onClick={() => shiftMonth(-1)}
                       aria-label={t("Previous month")}
-                      whileHover={{ x: -2, transition: softSpring }}
-                      whileTap={{ scale: 0.85, transition: tapSpring }}
+                      whileHover={{ x: -1, transition: softSpring }}
+                      whileTap={{ scale: 0.97, transition: tapSpring }}
                     >
                       <ChevronLeft size={16} />
                     </motion.button>
@@ -2679,8 +2550,8 @@ export default function Home() {
                     <motion.button
                       onClick={() => shiftMonth(1)}
                       aria-label={t("Next month")}
-                      whileHover={{ x: 2, transition: softSpring }}
-                      whileTap={{ scale: 0.85, transition: tapSpring }}
+                      whileHover={{ x: 1, transition: softSpring }}
+                      whileTap={{ scale: 0.97, transition: tapSpring }}
                     >
                       <ChevronRight size={16} />
                     </motion.button>
@@ -2713,8 +2584,8 @@ export default function Home() {
                           <motion.button
                             key={i}
                             variants={calendarDay}
-                            whileHover={{ scale: 1.14, transition: softSpring }}
-                            whileTap={{ scale: 0.88, transition: tapSpring }}
+                            whileHover={{ scale: 1.03, transition: softSpring }}
+                            whileTap={{ scale: 0.97, transition: tapSpring }}
                             className={
                               detailDateKey &&
                               localDateKey(new Date(year, month, i + 1)) ===
@@ -2851,9 +2722,6 @@ export default function Home() {
                 <motion.div className="profile-hero" variants={rise}>
                   <motion.div
                     className={`profile-avatar ${profilePhoto ? "has-photo" : ""}`}
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ ...softSpring, delay: 0.1 }}
                   >
                     {profilePhoto ? (
                       <img
@@ -3017,9 +2885,6 @@ export default function Home() {
                           {plan.highlight && (
                             <motion.span
                               className="plan-badge"
-                              initial={{ opacity: 0, y: -4, scale: 0.85 }}
-                              animate={{ opacity: 1, y: 0, scale: 1 }}
-                              transition={{ ...popSpring, delay: 0.2 }}
                             >
                               {current ? t("Current plan") : t(plan.highlight)}
                             </motion.span>
@@ -3027,8 +2892,8 @@ export default function Home() {
                           <motion.span
                             className="plan-mark"
                             aria-hidden="true"
-                            animate={{ scale: selected ? [1, 1.2, 1] : 1 }}
-                            transition={{ duration: 0.42, ease: easing }}
+                            animate={{ scale: selected ? 1.04 : 1 }}
+                            transition={{ duration: 0.15, ease: easing }}
                           >
                             <Check size={13} strokeWidth={3} />
                           </motion.span>
@@ -3275,15 +3140,13 @@ export default function Home() {
                   screen === "today" ? "Add activity" : "Add ritual",
                 )}
                 onClick={screen === "today" ? openAddActivity : openAddRitual}
-                initial={{ opacity: 0, scale: 0.4, y: 16 }}
-                animate={{ opacity: 1, scale: 1, y: 0, transition: softSpring }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1, transition: overlayEnter }}
                 exit={{
                   opacity: 0,
-                  scale: 0.5,
-                  y: 12,
-                  transition: { duration: 0.2, ease: exitEasing },
+                  transition: overlayExit,
                 }}
-                whileHover={{ scale: 1.03, transition: overlayEnter }}
+                whileHover={{ scale: 1.02, transition: softSpring }}
                 whileTap={{ scale: 0.96, transition: tapSpring }}
               >
                 <Plus size={32} strokeWidth={1.2} />
@@ -3316,18 +3179,18 @@ export default function Home() {
                     opacity: 0,
                     transform: reduced
                       ? "none"
-                      : "translate3d(0, -8px, 0) scale(0.98)",
+                      : "translate3d(0, -6px, 0)",
                   }}
                   animate={{
                     opacity: 1,
-                    transform: "translate3d(0, 0px, 0) scale(1)",
+                    transform: "translate3d(0, 0px, 0)",
                     transition: reduced ? { duration: 0.1 } : overlayEnter,
                   }}
                   exit={{
                     opacity: 0,
                     transform: reduced
                       ? "none"
-                      : "translate3d(0, -6px, 0) scale(0.98)",
+                      : "translate3d(0, -4px, 0)",
                     transition: reduced ? { duration: 0.1 } : overlayExit,
                   }}
                   style={{ transformOrigin: "top right" }}
@@ -3344,8 +3207,8 @@ export default function Home() {
                   ).map(([name, target]) => (
                     <motion.button
                       key={name}
-                      whileHover={{ x: 5, transition: softSpring }}
-                      whileTap={{ scale: 0.97, transition: tapSpring }}
+                      whileHover={{ x: 2, transition: softSpring }}
+                      whileTap={{ scale: 0.985, transition: tapSpring }}
                       onClick={() => go(target)}
                     >
                       {t(name)}
@@ -3656,8 +3519,8 @@ export default function Home() {
                         <motion.button
                           type="button"
                           aria-label={t("Add activity")}
-                          whileHover={{ rotate: 90, transition: softSpring }}
-                          whileTap={{ scale: 0.86, transition: tapSpring }}
+                          whileHover={{ scale: 1.03, transition: softSpring }}
+                          whileTap={{ scale: 0.97, transition: tapSpring }}
                           onClick={addDraftActivity}
                         >
                           <Plus size={17} />
@@ -3808,8 +3671,8 @@ export default function Home() {
                         <motion.button
                           type="button"
                           aria-label={t("Add activity")}
-                          whileHover={{ rotate: 90, transition: softSpring }}
-                          whileTap={{ scale: 0.86, transition: tapSpring }}
+                          whileHover={{ scale: 1.03, transition: softSpring }}
+                          whileTap={{ scale: 0.97, transition: tapSpring }}
                           onClick={addDraftActivity}
                         >
                           <Plus size={17} />
@@ -4119,8 +3982,6 @@ export default function Home() {
                   <Flower
                     name="lotus-bouquet"
                     className="completion-flower"
-                    float
-                    delay={0.3}
                   />
                   <Button
                     onClick={() => {
@@ -4139,11 +4000,11 @@ export default function Home() {
               <motion.div
                 role="status"
                 className="toast"
-                initial={{ opacity: 0, y: 16 }}
+                initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0, transition: softSpring }}
                 exit={{
                   opacity: 0,
-                  y: 10,
+                  y: 4,
                   transition: { duration: 0.18, ease: exitEasing },
                 }}
               >

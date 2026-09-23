@@ -586,7 +586,7 @@ input[type="checkbox"] {
   border-radius: 50%;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.5s cubic-bezier(0.25, 0.1, 0.25, 1);
+  transition: opacity 0.18s ease-out;
 }
 .hamburger > span {
   width: 26px;
@@ -601,12 +601,6 @@ input[type="checkbox"] {
   .hamburger::before {
     transition: none;
   }
-}
-/* Set by <Flower float>. These loop for as long as the screen is open, so they
-   are the one case where a permanent `will-change` is the cheap option: it buys
-   a layer once instead of a repaint every frame. */
-.is-floating {
-  will-change: transform;
 }
 .greeting {
   padding: 6px 20px 0;
