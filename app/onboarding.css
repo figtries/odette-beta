@@ -76,6 +76,10 @@ html {
 .welcome-complete {
   object-fit: fill;
 }
+.welcome-bloom {
+  width: 100%;
+  height: 100%;
+}
 .motto {
   top: 52%;
   left: 13.5%;

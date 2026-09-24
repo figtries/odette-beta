@@ -518,6 +518,7 @@ function Dot({ checked, tick = false }: { checked: boolean; tick?: boolean }) {
 }
 function Bar({ value }: { value: number }) {
   const t = useT();
+  const reduced = useReducedMotion();
   return (
     <div
       className="progress-track"
@@ -528,9 +529,9 @@ function Bar({ value }: { value: number }) {
       aria-valuemax={100}
     >
       <motion.div
-        initial={false}
+        initial={reduced ? false : { width: "0%" }}
         animate={{ width: `${value}%` }}
-        transition={{ duration: 0.3, ease: easing }}
+        transition={{ duration: reduced ? 0 : 0.8, ease: easing }}
       />
     </div>
   );
@@ -560,9 +561,9 @@ function Ring({ value }: { value: number }) {
             cx="70"
             cy="70"
             r="61"
-            initial={false}
+            initial={reduced ? false : { pathLength: 0 }}
             animate={{ pathLength: value / 100 }}
-            transition={{ duration: reduced ? 0 : 0.3, ease: easing }}
+            transition={{ duration: reduced ? 0 : 0.8, ease: easing }}
           />
         </svg>
         <div>
@@ -587,6 +588,7 @@ function Dropdown({
   label,
   chevron = false,
   menuAlign = "start",
+  menuAttached = false,
 }: {
   value: string;
   options: DropdownOption[];
@@ -594,6 +596,7 @@ function Dropdown({
   label: string;
   chevron?: boolean;
   menuAlign?: "start" | "end";
+  menuAttached?: boolean;
 }) {
   const t = useT();
   const [open, setOpen] = useState(false);
@@ -605,14 +608,18 @@ function Dropdown({
   const place = useCallback(() => {
     const anchor = trigger.current?.getBoundingClientRect();
     if (!anchor) return;
-    const width = Math.min(Math.max(anchor.width, 176), window.innerWidth - 16);
+    const width = Math.min(
+      Math.max(anchor.width, menuAttached ? 148 : 176),
+      window.innerWidth - 16,
+    );
+    const gap = menuAttached ? -4 : 6;
     const below = window.innerHeight - anchor.bottom - 12,
       above = anchor.top - 12,
       wanted = Math.min(options.length * 57 + 2, 322),
       flip = below < wanted && above > below,
       height = Math.max(114, Math.min(wanted, flip ? above : below));
     setBox({
-      top: flip ? anchor.top - 6 - height : anchor.bottom + 6,
+      top: flip ? anchor.top - gap - height : anchor.bottom + gap,
       left: Math.min(
         Math.max(8, menuAlign === "end" ? anchor.right - width : anchor.left),
         window.innerWidth - width - 8,
@@ -620,7 +627,7 @@ function Dropdown({
       width,
       height,
     });
-  }, [menuAlign, options.length]);
+  }, [menuAlign, menuAttached, options.length]);
   useEffect(() => {
     if (!open) return;
     const items = () =>
@@ -1650,10 +1657,24 @@ export default function Home() {
                 <motion.div className="welcome-actions" variants={rise}>
                   <div className="welcome-cta">
                     <div className="welcome-plant">
-                      <Flower
-                        name="12"
-                        className="welcome-complete"
-                      />
+                      <motion.div
+                        className="welcome-bloom"
+                        initial={
+                          reduced ? false : { opacity: 0, y: 14, scale: 0.96 }
+                        }
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        transition={
+                          reduced
+                            ? { duration: 0 }
+                            : {
+                                type: "spring",
+                                visualDuration: 0.75,
+                                bounce: 0.22,
+                              }
+                        }
+                      >
+                        <Flower name="12" className="welcome-complete" />
+                      </motion.div>
                     </div>
                     <Button onClick={() => go("signup")}>
                       {t("Get started")}
@@ -2512,6 +2533,8 @@ export default function Home() {
                     <div className="progress-period-picker">
                       <Dropdown
                         label={t("View progress by period")}
+                        menuAlign="end"
+                        menuAttached
                         value=""
                         options={viewByOptions}
                         onChange={(next) =>
@@ -3010,6 +3033,7 @@ export default function Home() {
                         <Dropdown
                           label={t("Language")}
                           menuAlign="end"
+                          menuAttached
                           value={language}
                           options={languageOptions}
                           onChange={(next) => {
@@ -3164,7 +3188,9 @@ export default function Home() {
                   initial={{ opacity: 0 }}
                   animate={{
                     opacity: 1,
-                    transition: reduced ? { duration: 0.1 } : overlayEnter,
+                    transition: reduced
+                      ? { duration: 0.1 }
+                      : { duration: 0.34, ease: easing },
                   }}
                   exit={{
                     opacity: 0,
@@ -3175,17 +3201,22 @@ export default function Home() {
                   className="menu-panel"
                   id="main-menu"
                   ref={menuRef}
-                  initial={{
-                    opacity: 0,
-                    transform: reduced
-                      ? "none"
-                      : "translate3d(0, -6px, 0)",
-                  }}
-                  animate={{
-                    opacity: 1,
-                    transform: "translate3d(0, 0px, 0)",
-                    transition: reduced ? { duration: 0.1 } : overlayEnter,
-                  }}
+                  initial={
+                    reduced
+                      ? { opacity: 0 }
+                      : { clipPath: "inset(0% 0% 100% 100% round 22px)" }
+                  }
+                  animate={
+                    reduced
+                      ? { opacity: 1, transition: { duration: 0.1 } }
+                      : {
+                          clipPath: "inset(0% 0% 0% 0% round 22px)",
+                          transition: {
+                            duration: 0.5,
+                            ease: [0.22, 1, 0.36, 1],
+                          },
+                        }
+                  }
                   exit={{
                     opacity: 0,
                     transform: reduced
@@ -3204,9 +3235,23 @@ export default function Home() {
                       ["Subscription", "subscription"],
                       ["Help & Settings", "help"],
                     ] as const
-                  ).map(([name, target]) => (
+                  ).map(([name, target], index) => (
                     <motion.button
                       key={name}
+                      initial={reduced ? false : { opacity: 0, y: 10 }}
+                      animate={
+                        reduced
+                          ? { opacity: 1, y: 0, transition: { duration: 0 } }
+                          : {
+                              opacity: 1,
+                              y: 0,
+                              transition: {
+                                delay: 0.11 + index * 0.048,
+                                duration: 0.36,
+                                ease: [0.22, 1, 0.36, 1],
+                              },
+                            }
+                      }
                       whileHover={{ x: 2, transition: softSpring }}
                       whileTap={{ scale: 0.985, transition: tapSpring }}
                       onClick={() => go(target)}
