@@ -3194,22 +3194,16 @@ export default function Home() {
                   initial={
                     reduced
                       ? { opacity: 0 }
-                      : {
-                          height: 54,
-                          paddingBottom: 0,
-                          "--menu-item-padding": "0px",
-                        }
+                      : { clipPath: "inset(0 0 100% 0 round 22px)" }
                   }
                   animate={
                     reduced
                       ? { opacity: 1, transition: { duration: 0.1 } }
                       : {
-                          height: "auto",
-                          paddingBottom: 30,
-                          "--menu-item-padding": "10px",
+                          clipPath: "inset(0 0 0% 0 round 22px)",
                           transition: {
-                            duration: 0.46,
-                            ease: [0.22, 1, 0.36, 1],
+                            duration: 0.48,
+                            ease: [0.4, 0, 0.2, 1],
                           },
                         }
                   }
@@ -3217,13 +3211,11 @@ export default function Home() {
                     reduced
                       ? { opacity: 0, transition: { duration: 0.1 } }
                       : {
-                          height: 54,
-                          paddingBottom: 0,
-                          "--menu-item-padding": "0px",
+                          clipPath: "inset(0 0 100% 0 round 22px)",
                           opacity: 0,
                           transition: {
-                            duration: 0.34,
-                            ease: [0.22, 1, 0.36, 1],
+                            duration: 0.32,
+                            ease: [0.4, 0, 0.2, 1],
                           },
                         }
                   }
