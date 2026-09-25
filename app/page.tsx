@@ -120,6 +120,16 @@ const overlayExit: Transition = {
   duration: 0.18,
   ease: exitEasing,
 };
+const menuReveal: Transition = {
+  type: "tween",
+  duration: 0.36,
+  ease: "linear",
+};
+const menuClose: Transition = {
+  type: "tween",
+  duration: 0.34,
+  ease: "linear",
+};
 const sheetEnter: Transition = {
   type: "tween",
   duration: 0.26,
@@ -3176,15 +3186,11 @@ export default function Home() {
                   initial={{ opacity: 0 }}
                   animate={{
                     opacity: 1,
-                    transition: reduced
-                      ? { duration: 0.1 }
-                      : { duration: 0.34, ease: easing },
+                    transition: reduced ? { duration: 0.1 } : menuReveal,
                   }}
                   exit={{
                     opacity: 0,
-                    transition: reduced
-                      ? { duration: 0.1 }
-                      : { duration: 0.34, ease: [0.22, 1, 0.36, 1] },
+                    transition: reduced ? { duration: 0.1 } : menuClose,
                   }}
                 />
                 <motion.div
@@ -3195,33 +3201,26 @@ export default function Home() {
                     reduced
                       ? { opacity: 0 }
                       : {
-                          clipPath:
-                            "polygon(0% 0%, 100% 0%, 100% 0%, 0% -40%)",
+                          clipPath: "inset(0% 0% 100% 100% round 22px)",
+                          opacity: 1,
                         }
                   }
                   animate={
                     reduced
                       ? { opacity: 1, transition: { duration: 0.1 } }
                       : {
-                          clipPath:
-                            "polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)",
-                          transition: {
-                            duration: 0.48,
-                            ease: [0.4, 0, 0.2, 1],
-                          },
+                          clipPath: "inset(0% 0% 0% 0% round 22px)",
+                          opacity: 1,
+                          transition: menuReveal,
                         }
                   }
                   exit={
                     reduced
                       ? { opacity: 0, transition: { duration: 0.1 } }
                       : {
-                          clipPath:
-                            "polygon(0% 0%, 100% 0%, 100% 0%, 0% -40%)",
+                          clipPath: "inset(0% 0% 100% 100% round 22px)",
                           opacity: 0,
-                          transition: {
-                            duration: 0.32,
-                            ease: [0.4, 0, 0.2, 1],
-                          },
+                          transition: menuClose,
                         }
                   }
                 >
