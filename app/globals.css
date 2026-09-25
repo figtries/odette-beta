@@ -586,7 +586,7 @@ input[type="checkbox"] {
   border-radius: 50%;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.18s ease-out;
+  transition: opacity 0.3s cubic-bezier(0.75, 0, 0.25, 1);
 }
 .hamburger > span {
   width: 26px;
@@ -1248,18 +1248,27 @@ input[type="checkbox"] {
 }
 .menu-panel {
   position: absolute;
-  will-change: clip-path;
   top: 12px;
   right: 17px;
   width: 230px;
-  background: #fff;
   border-radius: 22px;
   padding: 54px 26px 30px;
+}
+.menu-panel-background {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  border-radius: inherit;
+  transform-origin: top right;
+  will-change: transform, opacity;
+}
+.menu-panel-links {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: stretch;
 }
-.menu-panel > button {
+.menu-panel-links > button {
   text-align: left;
   font-size: 17px;
   padding: 10px 0;

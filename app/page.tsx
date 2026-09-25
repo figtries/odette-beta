@@ -122,13 +122,18 @@ const overlayExit: Transition = {
 };
 const menuReveal: Transition = {
   type: "tween",
-  duration: 0.36,
-  ease: "linear",
+  duration: 0.5,
+  ease: [0.75, 0, 0.25, 1],
 };
 const menuClose: Transition = {
   type: "tween",
-  duration: 0.34,
-  ease: "linear",
+  duration: 0.4,
+  ease: [0.75, 0, 0.25, 1],
+};
+const menuIcon: Transition = {
+  type: "tween",
+  duration: 0.3,
+  ease: [0.75, 0, 0.25, 1],
 };
 const sheetEnter: Transition = {
   type: "tween",
@@ -1612,7 +1617,7 @@ export default function Home() {
                         ? "translateY(4px) rotate(45deg) scaleX(0.576923)"
                         : "translateY(0px) rotate(0deg) scaleX(1)",
                     }}
-                    transition={reduced ? { duration: 0 } : overlayEnter}
+                    transition={reduced ? { duration: 0 } : menuIcon}
                   />
                   <motion.span
                     initial={false}
@@ -1621,7 +1626,7 @@ export default function Home() {
                         ? "translateY(-4px) rotate(-45deg) scaleX(0.576923)"
                         : "translateY(0px) rotate(0deg) scaleX(1)",
                     }}
-                    transition={reduced ? { duration: 0 } : overlayEnter}
+                    transition={reduced ? { duration: 0 } : menuIcon}
                   />
                 </motion.button>
               </motion.nav>
@@ -3177,7 +3182,13 @@ export default function Home() {
           </AnimatePresence>
           <AnimatePresence>
             {menu && (
-              <div className="menu-layer">
+              <motion.div
+                className="menu-layer"
+                exit={{
+                  opacity: 0,
+                  transition: { duration: reduced ? 0.1 : 0.4 },
+                }}
+              >
                 <motion.button
                   className="scrim"
                   aria-label={t("Close navigation")}
@@ -3186,63 +3197,77 @@ export default function Home() {
                   initial={{ opacity: 0 }}
                   animate={{
                     opacity: 1,
-                    transition: reduced ? { duration: 0.1 } : menuReveal,
+                    transition: reduced ? { duration: 0.1 } : { duration: 0.6 },
                   }}
                   exit={{
                     opacity: 0,
-                    transition: reduced ? { duration: 0.1 } : menuClose,
+                    transition: reduced ? { duration: 0.1 } : { duration: 0.4 },
                   }}
                 />
-                <motion.div
-                  className="menu-panel"
-                  id="main-menu"
-                  ref={menuRef}
-                  initial={
-                    reduced
-                      ? { opacity: 0 }
-                      : {
-                          clipPath: "inset(0% 0% 100% 100% round 22px)",
-                          opacity: 1,
-                        }
-                  }
-                  animate={
-                    reduced
-                      ? { opacity: 1, transition: { duration: 0.1 } }
-                      : {
-                          clipPath: "inset(0% 0% 0% 0% round 22px)",
-                          opacity: 1,
-                          transition: menuReveal,
-                        }
-                  }
-                  exit={
-                    reduced
-                      ? { opacity: 0, transition: { duration: 0.1 } }
-                      : {
-                          clipPath: "inset(0% 0% 100% 100% round 22px)",
-                          opacity: 0,
-                          transition: menuClose,
-                        }
-                  }
-                >
-                  {(
-                    [
-                      ["Today", "today"],
-                      ["Rituals", "rituals"],
-                      ["Progress", "progress"],
-                      ["Profile", "profile"],
-                      ["Subscription", "subscription"],
-                      ["Help & Settings", "help"],
-                    ] as const
-                  ).map(([name, target]) => (
-                    <button
-                      key={name}
-                      onClick={() => go(target)}
-                    >
-                      {t(name)}
-                    </button>
-                  ))}
-                </motion.div>
-              </div>
+                <div className="menu-panel" id="main-menu" ref={menuRef}>
+                  <motion.div
+                    className="menu-panel-background"
+                    aria-hidden="true"
+                    initial={
+                      reduced ? { opacity: 0 } : { scale: 0.5, opacity: 0 }
+                    }
+                    animate={
+                      reduced
+                        ? { opacity: 1, transition: { duration: 0.1 } }
+                        : {
+                            scale: 1,
+                            opacity: 1,
+                            transition: {
+                              scale: menuReveal,
+                              opacity: { duration: 0.6 },
+                            },
+                          }
+                    }
+                    exit={
+                      reduced
+                        ? { opacity: 0, transition: { duration: 0.1 } }
+                        : {
+                            scale: 0.5,
+                            opacity: 0,
+                            transition: {
+                              scale: { ...menuClose, delay: 0.08 },
+                              opacity: { duration: 0.3, delay: 0.08 },
+                            },
+                          }
+                    }
+                  />
+                  <motion.div
+                    className="menu-panel-links"
+                    initial={{ opacity: 0 }}
+                    animate={{
+                      opacity: 1,
+                      transition: {
+                        duration: reduced ? 0.1 : 0.17,
+                        delay: reduced ? 0 : 0.33,
+                      },
+                    }}
+                    exit={{
+                      opacity: 0,
+                      transition: { duration: reduced ? 0.1 : 0.12 },
+                    }}
+                  >
+                    {(
+                      [
+                        ["Today", "today"],
+                        ["Rituals", "rituals"],
+                        ["Progress", "progress"],
+                        ["Profile", "profile"],
+                        ["Subscription", "subscription"],
+                        ["Help & Settings", "help"],
+                      ] as const
+                    ).map(([name, target]) => (
+                      <button key={name} onClick={() => go(target)}>
+                        {t(name)}
+                      </button>
+                    ))}
+                  </motion.div>
+                </div>
+              </motion.div>
             )}
           </AnimatePresence>
           <AnimatePresence>
