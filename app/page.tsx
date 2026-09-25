@@ -122,17 +122,17 @@ const overlayExit: Transition = {
 };
 const menuReveal: Transition = {
   type: "tween",
-  duration: 0.5,
+  duration: 0.44,
   ease: [0.75, 0, 0.25, 1],
 };
 const menuClose: Transition = {
   type: "tween",
-  duration: 0.4,
+  duration: 0.35,
   ease: [0.75, 0, 0.25, 1],
 };
 const menuIcon: Transition = {
   type: "tween",
-  duration: 0.3,
+  duration: 0.26,
   ease: [0.75, 0, 0.25, 1],
 };
 const sheetEnter: Transition = {
@@ -3186,7 +3186,7 @@ export default function Home() {
                 className="menu-layer"
                 exit={{
                   opacity: 0,
-                  transition: { duration: reduced ? 0.1 : 0.4 },
+                  transition: { duration: reduced ? 0.1 : 0.35 },
                 }}
               >
                 <motion.button
@@ -3197,11 +3197,11 @@ export default function Home() {
                   initial={{ opacity: 0 }}
                   animate={{
                     opacity: 1,
-                    transition: reduced ? { duration: 0.1 } : { duration: 0.6 },
+                    transition: reduced ? { duration: 0.1 } : { duration: 0.53 },
                   }}
                   exit={{
                     opacity: 0,
-                    transition: reduced ? { duration: 0.1 } : { duration: 0.4 },
+                    transition: reduced ? { duration: 0.1 } : { duration: 0.35 },
                   }}
                 />
                 <div className="menu-panel" id="main-menu" ref={menuRef}>
@@ -3219,7 +3219,7 @@ export default function Home() {
                             opacity: 1,
                             transition: {
                               scale: menuReveal,
-                              opacity: { duration: 0.6 },
+                              opacity: { duration: 0.53 },
                             },
                           }
                     }
@@ -3230,8 +3230,8 @@ export default function Home() {
                             scale: 0.5,
                             opacity: 0,
                             transition: {
-                              scale: { ...menuClose, delay: 0.08 },
-                              opacity: { duration: 0.3, delay: 0.08 },
+                              scale: { ...menuClose, delay: 0.07 },
+                              opacity: { duration: 0.26, delay: 0.07 },
                             },
                           }
                     }
@@ -3242,13 +3242,13 @@ export default function Home() {
                     animate={{
                       opacity: 1,
                       transition: {
-                        duration: reduced ? 0.1 : 0.17,
-                        delay: reduced ? 0 : 0.33,
+                        duration: reduced ? 0.1 : 0.15,
+                        delay: reduced ? 0 : 0.29,
                       },
                     }}
                     exit={{
                       opacity: 0,
-                      transition: { duration: reduced ? 0.1 : 0.12 },
+                      transition: { duration: reduced ? 0.1 : 0.11 },
                     }}
                   >
                     {(
