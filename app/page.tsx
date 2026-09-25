@@ -3182,7 +3182,9 @@ export default function Home() {
                   }}
                   exit={{
                     opacity: 0,
-                    transition: reduced ? { duration: 0.1 } : overlayExit,
+                    transition: reduced
+                      ? { duration: 0.1 }
+                      : { duration: 0.34, ease: [0.22, 1, 0.36, 1] },
                   }}
                 />
                 <motion.div
@@ -3192,27 +3194,39 @@ export default function Home() {
                   initial={
                     reduced
                       ? { opacity: 0 }
-                      : { clipPath: "inset(0% 0% 100% 100% round 22px)" }
+                      : {
+                          height: 54,
+                          paddingBottom: 0,
+                          "--menu-item-padding": "0px",
+                        }
                   }
                   animate={
                     reduced
                       ? { opacity: 1, transition: { duration: 0.1 } }
                       : {
-                          clipPath: "inset(0% 0% 0% 0% round 22px)",
+                          height: "auto",
+                          paddingBottom: 30,
+                          "--menu-item-padding": "10px",
                           transition: {
-                            duration: 0.5,
+                            duration: 0.46,
                             ease: [0.22, 1, 0.36, 1],
                           },
                         }
                   }
-                  exit={{
-                    opacity: 0,
-                    transform: reduced
-                      ? "none"
-                      : "translate3d(0, -4px, 0)",
-                    transition: reduced ? { duration: 0.1 } : overlayExit,
-                  }}
-                  style={{ transformOrigin: "top right" }}
+                  exit={
+                    reduced
+                      ? { opacity: 0, transition: { duration: 0.1 } }
+                      : {
+                          height: 54,
+                          paddingBottom: 0,
+                          "--menu-item-padding": "0px",
+                          opacity: 0,
+                          transition: {
+                            duration: 0.34,
+                            ease: [0.22, 1, 0.36, 1],
+                          },
+                        }
+                  }
                 >
                   {(
                     [
@@ -3223,29 +3237,13 @@ export default function Home() {
                       ["Subscription", "subscription"],
                       ["Help & Settings", "help"],
                     ] as const
-                  ).map(([name, target], index) => (
-                    <motion.button
+                  ).map(([name, target]) => (
+                    <button
                       key={name}
-                      initial={reduced ? false : { opacity: 0, y: 10 }}
-                      animate={
-                        reduced
-                          ? { opacity: 1, y: 0, transition: { duration: 0 } }
-                          : {
-                              opacity: 1,
-                              y: 0,
-                              transition: {
-                                delay: 0.11 + index * 0.048,
-                                duration: 0.36,
-                                ease: [0.22, 1, 0.36, 1],
-                              },
-                            }
-                      }
-                      whileHover={{ x: 2, transition: softSpring }}
-                      whileTap={{ scale: 0.985, transition: tapSpring }}
                       onClick={() => go(target)}
                     >
                       {t(name)}
-                    </motion.button>
+                    </button>
                   ))}
                 </motion.div>
               </div>
