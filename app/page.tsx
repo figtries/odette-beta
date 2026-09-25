@@ -3194,13 +3194,17 @@ export default function Home() {
                   initial={
                     reduced
                       ? { opacity: 0 }
-                      : { clipPath: "inset(0 0 100% 0 round 22px)" }
+                      : {
+                          clipPath:
+                            "polygon(0% 0%, 100% 0%, 100% 0%, 0% -40%)",
+                        }
                   }
                   animate={
                     reduced
                       ? { opacity: 1, transition: { duration: 0.1 } }
                       : {
-                          clipPath: "inset(0 0 0% 0 round 22px)",
+                          clipPath:
+                            "polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)",
                           transition: {
                             duration: 0.48,
                             ease: [0.4, 0, 0.2, 1],
@@ -3211,7 +3215,8 @@ export default function Home() {
                     reduced
                       ? { opacity: 0, transition: { duration: 0.1 } }
                       : {
-                          clipPath: "inset(0 0 100% 0 round 22px)",
+                          clipPath:
+                            "polygon(0% 0%, 100% 0%, 100% 0%, 0% -40%)",
                           opacity: 0,
                           transition: {
                             duration: 0.32,
