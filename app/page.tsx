@@ -587,16 +587,12 @@ function Dropdown({
   onChange,
   label,
   chevron = false,
-  menuAlign = "start",
-  menuAttached = false,
 }: {
   value: string;
   options: DropdownOption[];
   onChange: (value: string) => void;
   label: string;
   chevron?: boolean;
-  menuAlign?: "start" | "end";
-  menuAttached?: boolean;
 }) {
   const t = useT();
   const [open, setOpen] = useState(false);
@@ -606,28 +602,25 @@ function Dropdown({
   const reduced = useReducedMotion();
   const current = options.find((option) => option.value === value);
   const place = useCallback(() => {
-    const anchor = trigger.current?.getBoundingClientRect();
+    const anchor = (
+      trigger.current?.closest(
+        ".select-field, .progress-period-picker, .settings-value",
+      ) ?? trigger.current
+    )?.getBoundingClientRect();
     if (!anchor) return;
-    const width = Math.min(
-      Math.max(anchor.width, menuAttached ? 148 : 176),
-      window.innerWidth - 16,
-    );
-    const gap = menuAttached ? -4 : 6;
+    const width = Math.min(anchor.width, window.innerWidth - 16);
     const below = window.innerHeight - anchor.bottom - 12,
       above = anchor.top - 12,
       wanted = Math.min(options.length * 57 + 2, 322),
       flip = below < wanted && above > below,
       height = Math.max(114, Math.min(wanted, flip ? above : below));
     setBox({
-      top: flip ? anchor.top - gap - height : anchor.bottom + gap,
-      left: Math.min(
-        Math.max(8, menuAlign === "end" ? anchor.right - width : anchor.left),
-        window.innerWidth - width - 8,
-      ),
+      top: flip ? anchor.top - height : anchor.bottom,
+      left: Math.min(Math.max(8, anchor.left), window.innerWidth - width - 8),
       width,
       height,
     });
-  }, [menuAlign, menuAttached, options.length]);
+  }, [options.length]);
   useEffect(() => {
     if (!open) return;
     const items = () =>
@@ -2337,7 +2330,6 @@ export default function Home() {
                   <Dropdown
                     label={t("Progress period")}
                     chevron
-                    menuAlign="end"
                     value={progressPeriod}
                     options={periodOptions}
                     onChange={(next) =>
@@ -2533,8 +2525,6 @@ export default function Home() {
                     <div className="progress-period-picker">
                       <Dropdown
                         label={t("View progress by period")}
-                        menuAlign="end"
-                        menuAttached
                         value=""
                         options={viewByOptions}
                         onChange={(next) =>
@@ -3032,8 +3022,6 @@ export default function Home() {
                       <span className="settings-value">
                         <Dropdown
                           label={t("Language")}
-                          menuAlign="end"
-                          menuAttached
                           value={language}
                           options={languageOptions}
                           onChange={(next) => {

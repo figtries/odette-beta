@@ -2352,7 +2352,7 @@ input[type="checkbox"] {
   align-items: center;
 }
 .settings-value .dd-trigger {
-  max-width: 96px;
+  width: 112px;
   height: 38px;
   padding: 0 23px 0 9px;
   border: 0;
@@ -2738,6 +2738,7 @@ input[type="checkbox"] {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
+  border: 1px solid #ebe8f1;
   border-radius: 14px;
   background: #fff;
   box-shadow:
@@ -2750,15 +2751,15 @@ input[type="checkbox"] {
   flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
+  gap: 6px;
   width: 100%;
   min-height: 56px;
-  padding: 14px 20px;
+  padding: 12px;
   border: 0;
   background: transparent;
   color: #1d1d24;
   font-family: var(--body);
-  font-size: 17px;
+  font-size: 13px;
   line-height: 1.25;
   text-align: left;
 }
@@ -2768,12 +2769,19 @@ input[type="checkbox"] {
 .dd-option > span {
   flex: 1;
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .dd-option > svg,
 .dd-option > .dd-check {
   display: flex;
   flex: 0 0 auto;
   color: var(--pink);
+}
+.dd-check svg {
+  width: 16px;
+  height: 16px;
 }
 .dd-option:disabled {
   color: #a6a1b0;
